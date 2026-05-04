@@ -1,0 +1,79 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Кабинет преподавателя{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-8">
+    <h2>Добрый день, {{ teacher.first_name }} {{ teacher.last_name }}</h2>
+    <p class="text-muted">{{ teacher.specialization }}{% if teacher.position %} ({{ teacher.position.title }}){% endif %}</p>
+
+    <!-- Расписание на неделю -->
+    <h4 class="mt-4">Моё расписание на неделю</h4>
+    {% if schedules %}
+      <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+          <tr>
+            <th>Дата</th>
+            <th>Время</th>
+            <th>Группа</th>
+            <th>Предмет</th>
+            <th>Формат</th>
+            <th>Аудитория / Ссылка</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in schedules %}
+            <tr>
+              <td>{{ s.date|date:"d.m.Y (D)" }}</td>
+              <td>{{ s.time_start|time:"H:i" }} – {{ s.time_end|time:"H:i" }}</td>
+              <td>{{ s.group.title }}</td>
+              <td>{{ s.subject.title }}</td>
+              <td>{{ s.get_format_display }}</td>
+              <td>
+                {% if s.format == 'offline' %}
+                  {{ s.classroom|default:"—" }}
+                {% else %}
+                  {% if s.video_link %}
+                    <a href="{{ s.video_link }}" target="_blank">Перейти</a>
+                  {% else %}
+                    Нет ссылки
+                  {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-info">На этой неделе занятий нет.</div>
+    {% endif %}
+
+    <!-- Предметы и группы преподавателя -->
+    <h4 class="mt-4">Мои дисциплины и группы</h4>
+    {% if curriculums %}
+      <ul class="list-group">
+        {% for c in curriculums %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ c.subject.title }} → группа «{{ c.group.title }}» ({{ c.group.direction.title }})</span>
+            <span class="badge bg-primary rounded-pill">{{ c.group.students.count }} уч.</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>У вас пока нет назначенных дисциплин.</p>
+    {% endif %}
+  </div>
+
+  <!-- Боковая панель: быстрые действия -->
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">Быстрые действия</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'unicron_app:attendance' %}" class="list-group-item list-group-item-action">Отметить посещаемость</a>
+        <a href="{% url 'unicron_app:grades_manage' %}" class="list-group-item list-group-item-action">Журнал оценок</a>
+        <a href="{% url 'unicron_app:grade_add' %}" class="list-group-item list-group-item-action">Выставить оценку</a>
+        <a href="{% url 'unicron_app:schedule' %}" class="list-group-item list-group-item-action">Просмотр расписания</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Подать заявку{% endblock %}
+{% block content %}
+<h2>Заявка на обучение</h2>
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      {{ form.first_name.label_tag }}
+      {{ form.first_name }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.last_name.label_tag }}
+      {{ form.last_name }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.middle_name.label_tag }}
+      {{ form.middle_name }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.birth_date.label_tag }}
+      {{ form.birth_date }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.phone.label_tag }}
+      {{ form.phone }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.email.label_tag }}
+      {{ form.email }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.group.label_tag }}
+      {{ form.group }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.password.label_tag }}
+      {{ form.password }}
+    </div>
+    <div class="col-12 mb-3">
+      {{ form.photo.label_tag }}
+      {{ form.photo }}
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">Отправить заявку</button>
+</form>
+{% endblock %}

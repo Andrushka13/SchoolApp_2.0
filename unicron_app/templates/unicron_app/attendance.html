@@ -1,0 +1,17 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Отметка посещаемости{% endblock %}
+{% block content %}
+<h2>Занятия сегодня ({{ now|date:"d.m.Y" }})</h2>
+{% if schedules %}
+  <ul class="list-group">
+    {% for s in schedules %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ s.time_start|time:"H:i" }} – {{ s.time_end|time:"H:i" }} | {{ s.subject.title }} | {{ s.group.title }}
+        <a href="{% url 'unicron_app:mark_attendance' s.pk %}" class="btn btn-outline-primary btn-sm">Отметить</a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>На сегодня занятий нет.</p>
+{% endif %}
+{% endblock %}

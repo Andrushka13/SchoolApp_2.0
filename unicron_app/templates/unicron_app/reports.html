@@ -1,0 +1,25 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Отчёты{% endblock %}
+{% block content %}
+<h2>Отчёты и экспорт</h2>
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Экспорт в Excel</h5>
+        <p class="card-text">Скачать ведомость успеваемости в формате XLSX.</p>
+        <a href="{% url 'unicron_app:export_excel' %}" class="btn btn-success">Скачать Excel</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Экспорт в PDF</h5>
+        <p class="card-text">Сводный отчёт по группам в формате PDF.</p>
+        <a href="{% url 'unicron_app:export_pdf' %}" class="btn btn-danger">Скачать PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

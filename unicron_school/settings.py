@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,9 +25,9 @@ SECRET_KEY = 'django-insecure-2zo*#w8j2q3t162f7+2a*fkn_%jezw2krgwy4p^%#8#b5hku!u
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
-AUTH_USER_MODEL = 'unicron.app.User'
+AUTH_USER_MODEL = 'unicron_app.User'
 
 
 # Application definition
@@ -87,7 +87,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'unicron_db',
         'USER': 'unicron_user',
-        'PASSWORD': 'superpass',
+        'PASSWORD': 'superpass',  # без русских букв
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -131,6 +131,10 @@ STATIC_URL = 'static/'
 STATIC_ROOT = [BASE_DIR / 'static']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_URL = 'unicron_app:login'             # перенаправление на вход
+LOGIN_REDIRECT_URL = 'unicron_app:dashboard' # после успешного входа
+LOGOUT_REDIRECT_URL = 'unicron_app:login'    # после выхода
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

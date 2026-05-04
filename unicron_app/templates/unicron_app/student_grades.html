@@ -1,0 +1,42 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Успеваемость {{ student }}{% endblock %}
+{% block content %}
+<h2>Успеваемость: {{ student.last_name }} {{ student.first_name }}</h2>
+{% if student.group %}
+  <p>Группа: {{ student.group.title }}</p>
+{% endif %}
+
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>Предмет</th>
+      <th>Тип контроля</th>
+      <th>Оценка</th>
+      <th>Дата</th>
+      <th>Комментарий</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in grades %}
+      <tr>
+        <td>{{ g.subject.title }}</td>
+        <td>{{ g.get_control_type_display }}</td>
+        <td>
+          {% if g.score is not None %}
+            {{ g.score }}
+          {% elif g.is_passed is not None %}
+            {% if g.is_passed %}Зачёт{% else %}Незачёт{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ g.date|date:"d.m.Y" }}</td>
+        <td>{{ g.comment|default:"" }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">Нет оценок</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a href="{% url 'unicron_app:grades_manage' %}" class="btn btn-secondary">Назад</a>
+{% endblock %}

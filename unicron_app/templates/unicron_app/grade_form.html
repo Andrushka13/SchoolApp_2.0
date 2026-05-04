@@ -1,0 +1,11 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Выставление оценки{% endblock %}
+{% block content %}
+<h2>Новая оценка</h2>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit" class="btn btn-success">Выставить</button>
+  <a href="{% url 'unicron_app:grades_manage' %}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}

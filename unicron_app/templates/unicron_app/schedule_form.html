@@ -1,0 +1,30 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}{{ action }} занятие{% endblock %}
+{% block content %}
+<h2>{{ action }} запись расписания</h2>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="mb-3">
+    {{ form.as_p }}
+  </div>
+  <button type="submit" class="btn btn-primary">Сохранить</button>
+  <a href="{% url 'unicron_app:schedule' %}" class="btn btn-secondary">Отмена</a>
+</form>
+<script>
+  // Условное отображение полей в зависимости от формата
+  const formatSelect = document.querySelector('#id_format');
+  const classroomField = document.querySelector('#id_classroom').closest('p');
+  const videoLinkField = document.querySelector('#id_video_link').closest('p');
+  function toggleFields() {
+    if (formatSelect.value === 'offline') {
+      classroomField.style.display = 'block';
+      videoLinkField.style.display = 'none';
+    } else {
+      classroomField.style.display = 'none';
+      videoLinkField.style.display = 'block';
+    }
+  }
+  formatSelect.addEventListener('change', toggleFields);
+  toggleFields();
+</script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Панель управления{% endblock %}
+{% block content %}
+<h2>Панель управления АИС «Юникрон»</h2>
+
+<!-- Сводные показатели -->
+<div class="row text-center my-4">
+  <div class="col-md-3">
+    <div class="card border-primary">
+      <div class="card-body">
+        <h5 class="card-title">Направления</h5>
+        <p class="display-4">{{ total_directions }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-success">
+      <div class="card-body">
+        <h5 class="card-title">Группы</h5>
+        <p class="display-4">{{ total_groups }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-warning">
+      <div class="card-body">
+        <h5 class="card-title">Студенты</h5>
+        <p class="display-4">{{ total_students }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-danger">
+      <div class="card-body">
+        <h5 class="card-title">Преподаватели</h5>
+        <p class="display-4">{{ total_teachers }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Заполняемость групп -->
+<h3>Заполняемость групп</h3>
+<table class="table table-striped table-hover">
+  <thead class="table-dark">
+    <tr>
+      <th>Группа</th>
+      <th>Направление</th>
+      <th>Форма обучения</th>
+      <th>Статус</th>
+      <th>Кол-во студентов</th>
+      <th>Максимум</th>
+      <th>Заполненность</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in groups %}
+      {% with current=g.num_students %}
+      <tr>
+        <td>{{ g.title }}</td>
+        <td>{{ g.direction.title }}</td>
+        <td>{{ g.get_form_display }}</td>
+        <td>{{ g.get_status_display }}</td>
+        <td>{{ current }}</td>
+        <td>{% if g.form == 'full_time' %}12{% else %}15{% endif %}</td>
+        <td>
+          <div class="progress" style="height: 20px;">
+            <div class="progress-bar {% if current > 12 %}bg-danger{% elif current > 8 %}bg-warning{% else %}bg-success{% endif %}"
+                 role="progressbar"
+                 style="width: {% widthratio current g.max_students 100 %}%;"
+                 aria-valuenow="{{ current }}"
+                 aria-valuemin="0"
+                 aria-valuemax="{{ g.max_students }}">
+              {{ current }} / {{ g.max_students }}
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endwith %}
+    {% empty %}
+      <tr><td colspan="7" class="text-center">Нет групп</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Ссылки на отчёты -->
+<div class="mt-4">
+  <a href="{% url 'unicron_app:reports' %}" class="btn btn-outline-primary">Отчёты</a>
+  <a href="{% url 'unicron_app:schedule' %}" class="btn btn-outline-secondary">Расписание</a>
+  <a href="/admin/" class="btn btn-outline-dark">Администрирование</a>
+</div>
+{% endblock %}
