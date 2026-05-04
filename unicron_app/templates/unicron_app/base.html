@@ -16,9 +16,14 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 {% if user.is_authenticated %}
-                    <li class="nav-item"><span class="nav-link">{{ user.get_full_name }} ({{ user.get_role_display }})</span></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'unicron_app:dashboard' %}">Личный кабинет</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'unicron_app:logout' %}">Выйти</a></li>
+                    <li class="nav-item">
+                        <form method="post" action="{% url 'unicron_app:logout' %}" class="d-inline">
+                        {% csrf_token %}
+                            <button type="submit" class="btn nav-link" style="background: none; border: none; padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x);">
+                            Выйти
+                            </button>
+                        </form>
+                    </li>
                 {% else %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'unicron_app:login' %}">Войти</a></li>
                 {% endif %}

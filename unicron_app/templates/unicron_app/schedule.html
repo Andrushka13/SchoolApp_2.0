@@ -1,0 +1,94 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Расписание занятий{% endblock %}
+{% block content %}
+<h2>Расписание занятий</h2>
+
+<!-- Фильтр по группе -->
+<form method="get" class="row g-3 mb-4">
+  <div class="col-auto">
+    <label for="groupSelect" class="col-form-label">Группа:</label>
+  </div>
+  <div class="col-auto">
+    <select name="group" id="groupSelect" class="form-select">
+      <option value="">-- Все группы --</option>
+      {% for g in groups %}
+        <option value="{{ g.pk }}" {% if selected_group == g.pk|stringformat:"s" %}selected{% endif %}>
+          {{ g.title }} ({{ g.direction.title }})
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary">Показать</button>
+  </div>
+  {% if selected_group %}
+    <div class="col-auto">
+      <a href="{% url 'unicron_app:schedule' %}" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+  {% endif %}
+</form>
+
+<!-- Информационное сообщение -->
+{% if show_all %}
+  <div class="alert alert-info">Показаны все запланированные занятия. Для фильтрации выберите конкретную группу.</div>
+{% endif %}
+
+{% if schedules %}
+  <table class="table table-bordered table-striped">
+    <thead class="table-dark">
+      <tr>
+        <th>Дата</th>
+        <th>Время</th>
+        <th>Предмет</th>
+        <th>Группа</th>
+        <th>Преподаватель</th>
+        <th>Формат</th>
+        <th>Аудитория / Ссылка</th>
+        <th>Статус</th>
+        {% if perms.unicron_app.change_schedule %}
+          <th>Действия</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in schedules %}
+        <tr {% if s.is_cancelled %}class="table-secondary text-decoration-line-through"{% endif %}>
+          <td>{{ s.date|date:"d.m.Y" }}</td>
+          <td>{{ s.time_start|time:"H:i" }} – {{ s.time_end|time:"H:i" }}</td>
+          <td>{{ s.subject.title }}</td>
+          <td>{{ s.group.title }}</td>
+          <td>{{ s.teacher|default:"не назначен" }}</td>
+          <td>{{ s.get_format_display }}</td>
+          <td>
+            {% if s.format == 'offline' %}
+              {{ s.classroom }}
+            {% else %}
+              {% if s.video_link %}<a href="{{ s.video_link }}" target="_blank">Ссылка</a>{% else %}—{% endif %}
+            {% endif %}
+          </td>
+          <td>
+            {% if s.is_cancelled %}
+              <span class="badge bg-danger">Отменено</span>
+            {% else %}
+              <span class="badge bg-success">Активно</span>
+            {% endif %}
+          </td>
+          {% if perms.unicron_app.change_schedule %}
+            <td>
+              <a href="{% url 'unicron_app:schedule_edit' s.pk %}" class="btn btn-sm btn-outline-warning">Изменить</a>
+            </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% elif selected_group %}
+  <div class="alert alert-warning">Для выбранной группы занятий не найдено.</div>
+{% else %}
+  <div class="alert alert-light border">Нет ни одного занятия в расписании. Добавьте записи через админку или нажмите «Добавить занятие».</div>
+{% endif %}
+
+{% if perms.unicron_app.add_schedule %}
+  <a href="{% url 'unicron_app:schedule_add' %}" class="btn btn-success">Добавить занятие</a>
+{% endif %}
+{% endblock %}
