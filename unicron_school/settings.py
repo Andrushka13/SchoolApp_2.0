@@ -87,7 +87,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'unicron_db',
         'USER': 'unicron_user',
-        'PASSWORD': 'superpass',  # без русских букв
+        'PASSWORD': 'qwerty',  # без русских букв
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -142,3 +142,5 @@ LOGOUT_REDIRECT_URL = 'unicron_app:login'    # после выхода
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' # в реальности нужно использовать SMTP
+
+WKHTMLTOPDF_PATH = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'

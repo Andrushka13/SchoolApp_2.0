@@ -1,0 +1,39 @@
+{% extends "unicron_app/base.html" %}
+{% block title %}Оценки группы{% endblock %}
+{% block content %}
+<h2>Оценки
+    {% if group %}группы «{{ group.title }}»{% endif %}
+    {% if subject %}по предмету «{{ subject.title }}»{% endif %}
+</h2>
+
+{% if grades %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Студент</th>
+                <th>Предмет</th>
+                <th>Тип контроля</th>
+                <th>Балл</th>
+                <th>Дата</th>
+                <th>Комментарий</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in grades %}
+                <tr>
+                    <td>{{ g.student.last_name }} {{ g.student.first_name }}</td>
+                    <td>{{ g.subject.title }}</td>
+                    <td>{{ g.get_control_type_display }}</td>
+                    <td>{{ g.score|default:"—" }}</td>
+                    <td>{{ g.date|date:"d.m.Y" }}</td>
+                    <td>{{ g.comment|default:"" }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="alert alert-warning">Нет оценок для отображения.</div>
+{% endif %}
+
+<a href="{% url 'unicron_app:grades_manage' %}" class="btn btn-secondary">Назад к журналу</a>
+{% endblock %}

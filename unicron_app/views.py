@@ -9,9 +9,10 @@ from .forms import StudentApplicationForm, ScheduleForm, GradeForm
 import openpyxl
 from openpyxl.styles import Font
 from django.template.loader import get_template
+# from xhtml2pdf import pisa
 from io import BytesIO
-from xhtml2pdf import pisa   # pip install xhtml2pdf
-
+import pdfkit
+from django.conf import settings
 # ───────────────── Декораторы ─────────────────
 def role_required(*roles):
     """Доступ только пользователям с указанной ролью."""
@@ -130,17 +131,52 @@ def grade_add(request):
     return render(request, 'unicron_app/grade_form.html', {'form': form})
 
 def student_grades(request, student_id):
-    student = get_object_or_404(Student, pk=student_id)
-    grades = Grade.objects.filter(student=student).order_by('subject', 'date')
-    return render(request, 'unicron_app/student_grades.html', {'student': student, 'grades': grades})
+    """
+    Если student_id = 0, то показываем оценки всех студентов по фильтру (группа, предмет).
+    Иначе — оценки конкретного студента.
+    """
+    group_id = request.GET.get('group')
+    subject_id = request.GET.get('subject')
+
+    if student_id == 0:
+        # Режим просмотра оценок всей группы по предмету
+        if group_id and subject_id:
+            grades = Grade.objects.filter(
+                group_id=group_id,
+                subject_id=subject_id
+            ).select_related('student', 'subject').order_by('student__last_name', 'date')
+        else:
+            grades = Grade.objects.none()
+        context = {
+            'grades': grades,
+            'group': Group.objects.filter(pk=group_id).first(),
+            'subject': Subject.objects.filter(pk=subject_id).first(),
+        }
+        return render(request, 'unicron_app/group_grades.html', context)
+    else:
+        # Конкретный студент
+        student = get_object_or_404(Student, pk=student_id)
+        grades = Grade.objects.filter(student=student).order_by('subject', 'date')
+        return render(request, 'unicron_app/student_grades.html', {
+            'student': student,
+            'grades': grades,
+        })
 
 # ───────────────── Посещаемость ─────────────────
 @login_required
 @role_required('teacher')
 def attendance_view(request):
     teacher = request.user.teacher_profile
-    schedules = Schedule.objects.filter(teacher=teacher, date=timezone.now().date(), is_cancelled=False)
+    group_id = request.GET.get('group')
+    schedules = Schedule.objects.filter(
+        teacher=teacher,
+        date=timezone.now().date(),
+        is_cancelled=False
+    )
+    if group_id:
+        schedules = schedules.filter(group_id=group_id)
     return render(request, 'unicron_app/attendance.html', {'schedules': schedules})
+
 
 @login_required
 @role_required('teacher')
@@ -192,17 +228,31 @@ def export_excel(request):
     response['Content-Disposition'] = 'attachment; filename=grades.xlsx'
     return response
 
+@login_required
+@role_required('admin', 'head', 'methodist')
 def export_pdf(request):
     template = get_template('unicron_app/report_pdf.html')
-    # Собираем контекст (например, сводка по группам)
     groups = Group.objects.all()
-    html = template.render({'groups': groups})
-    result = BytesIO()
-    pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
-    if not pdf.err:
-        return HttpResponse(result.getvalue(), content_type='application/pdf')
-    return HttpResponse('Ошибка при создании PDF', status=500)
-
+    html_string = template.render(
+        {
+            'groups': groups,
+        }
+    )
+    config = pdfkit.configuration()
+    if hasattr(settings, 'WKHTMLTOPDF_PATH'):
+        config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_PATH)
+    
+    options = {
+        'encoding': 'UTF-8',
+        'enable-local-file-access': None
+    }
+    
+    pdf = pdfkit.from_string(html_string, False, options=options, configuration=config)
+    
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Diposition'] = 'attachment; filename="report.pdf"'
+    return response
+    
 # ───────────────── Заявка на поступление ─────────────────
 def apply(request):
     if request.method == 'POST':

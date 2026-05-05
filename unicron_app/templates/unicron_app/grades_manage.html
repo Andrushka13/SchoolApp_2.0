@@ -10,8 +10,8 @@
           {{ c.subject.title }} — группа «{{ c.group.title }}»
         </div>
         <div class="card-body">
-          <a href="{% url 'unicron_app:student_grades' 0 %}?group={{ c.group.pk }}&subject={{ c.subject.pk }}" class="btn btn-outline-primary btn-sm">Просмотреть оценки группы</a>
-          <a href="{% url 'unicron_app:mark_attendance' 0 %}?schedule={{ c.group.pk }}" class="btn btn-outline-secondary btn-sm">Посещаемость</a>
+          <a href="{% url 'unicron_app:student_grades' student_id=0 %}?group={{ c.group.pk }}&subject={{ c.subject.pk }}" class="btn btn-outline-primary btn-sm">Просмотреть оценки группы</a>
+          <a href="{% url 'unicron_app:attendance' %}?group={{ c.group.pk }}" class="btn btn-outline-secondary btn-sm">Посещаемость</a>
         </div>
       </div>
     </div>
