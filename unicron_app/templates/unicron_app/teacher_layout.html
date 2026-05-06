@@ -1,0 +1,92 @@
+{% extends "unicron_app/base.html" %}
+
+{% block title %}Личный кабинет преподавателя{% endblock %}
+
+{% block extra_css %}
+<style>
+    .teacher-wrapper {
+        display: flex;
+        flex: 1;
+    }
+    .sidebar {
+        width: 230px;
+        background-color: #f8f9fa;
+        padding: 1.5rem 1rem;
+        border-left: 1px solid #dee2e6;
+        flex-shrink: 0;
+    }
+    .sidebar .nav-link {
+        color: #333;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+    .sidebar .nav-link.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+    .content {
+        flex: 1;
+        padding: 1.5rem;
+    }
+    .greeting-bar {
+        background-color: #e9ecef;
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    @media (max-width: 768px) {
+        .teacher-wrapper {
+            flex-direction: column;
+        }
+        .sidebar {
+            width: 100%;
+            border-left: none;
+            border-top: 1px solid #dee2e6;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block outer_content %}
+<div class="greeting-bar">
+    {% if greeting %}
+        {{ greeting }}, {{ teacher.first_name }} {{ teacher.middle_name }}!
+    {% else %}
+        Добро пожаловать, {{ teacher.first_name }} {{ teacher.middle_name }}!
+    {% endif %}
+</div>
+<div class="teacher-wrapper">
+    <main class="content">
+        {% block teacher_content %}{% endblock %}
+    </main>
+
+    <nav class="sidebar">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'account' %}active{% endif %}" href="{% url 'unicron_app:teacher_account' %}">
+                    📋 Аккаунт
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'schedule' %}active{% endif %}" href="{% url 'unicron_app:teacher_schedule_week' %}">
+                    📅 Расписание
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'groups' %}active{% endif %}" href="{% url 'unicron_app:teacher_groups' %}">
+                    👥 Группы
+                </a>
+            </li>
+            <li class="nav-item mt-3">
+                <form method="post" action="{% url 'unicron_app:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link nav-link text-danger" style="border:none; background:none; padding-left:0;">
+                        🚪 Выйти
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endblock %}

@@ -1,18 +1,22 @@
+# unicron_app/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.db.models import Avg, Count, Q
-from datetime import timedelta
+from datetime import datetime, timedelta
+from django.template.loader import get_template
+from io import BytesIO
+import pdfkit
+from django.conf import settings
+
 from .models import *
 from .forms import StudentApplicationForm, ScheduleForm, GradeForm
 import openpyxl
 from openpyxl.styles import Font
-from django.template.loader import get_template
-# from xhtml2pdf import pisa
-from io import BytesIO
-import pdfkit
-from django.conf import settings
+
+
 # ───────────────── Декораторы ─────────────────
 def role_required(*roles):
     """Доступ только пользователям с указанной ролью."""
@@ -20,40 +24,306 @@ def role_required(*roles):
         return user.is_authenticated and user.role in roles
     return user_passes_test(check_role, login_url='unicron_app:login')
 
+
+def student_required(view_func):
+    """Доступ только для роли 'student'."""
+    return user_passes_test(lambda u: u.is_authenticated and u.role == 'student', login_url='unicron_app:login')(view_func)
+
+def teacher_required(view_func):
+    return user_passes_test(lambda u: u.is_authenticated and u.role == 'teacher', login_url='unicron_app:login')(view_func)
+
+
 # ───────────────── Главная ─────────────────
 @login_required
 def dashboard(request):
     """Перенаправление в личный кабинет по роли."""
     role = request.user.role
     if role == 'student':
-        return redirect('unicron_app:student_cabinet')
+        return redirect('unicron_app:student_dashboard')  # ведёт на student_account
     elif role == 'teacher':
-        return redirect('unicron_app:teacher_cabinet')
+        return redirect('unicron_app:teacher_dashboard')
     else:
         return redirect('unicron_app:admin_cabinet')
 
+
 # ───────────────── Личные кабинеты ─────────────────
 @login_required
-@role_required('student')
-def student_cabinet(request):
-    student = request.user.student_profile
-    today = timezone.now().date()
-    schedules = Schedule.objects.filter(group=student.group, date=today, is_cancelled=False).order_by('time_start')
-    grades = Grade.objects.filter(student=student).select_related('subject')
-    context = {'student': student, 'schedules': schedules, 'grades': grades}
-    return render(request, 'unicron_app/student_cabinet.html', context)
+@student_required
+def student_dashboard(request):
+    """Точка входа для студента, перенаправляем на страницу аккаунта."""
+    return redirect('unicron_app:student_account')
+
 
 @login_required
-@role_required('teacher')
-def teacher_cabinet(request):
+@student_required
+def student_account(request):
+    """Страница 'Аккаунт' – личное дело."""
+    student = request.user.student_profile
+    now = datetime.now().time()
+    if now < datetime.strptime('12:00', '%H:%M').time():
+        greeting = 'Доброе утро'
+    elif now < datetime.strptime('18:00', '%H:%M').time():
+        greeting = 'Добрый день'
+    else:
+        greeting = 'Добрый вечер'
+    context = {
+        'student': student,
+        'greeting': greeting,
+        'active_tab': 'account'
+    }
+    return render(request, 'unicron_app/student_account.html', context)
+
+
+@login_required
+@student_required
+def student_schedule_week(request):
+    """Расписание группы студента на текущую неделю."""
+    student = request.user.student_profile
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+    days = [monday + timedelta(days=i) for i in range(5)]  # Пн-Пт
+
+    schedules = Schedule.objects.filter(
+        group=student.group,
+        date__range=[monday, monday + timedelta(days=6)],
+        is_cancelled=False
+    ).select_related('subject').order_by('date', 'time_start')
+
+    week_data = {day: schedules.filter(date=day) for day in days}
+
+    now = datetime.now().time()
+    if now < datetime.strptime('12:00', '%H:%M').time():
+        greeting = 'Доброе утро'
+    elif now < datetime.strptime('18:00', '%H:%M').time():
+        greeting = 'Добрый день'
+    else:
+        greeting = 'Добрый вечер'
+
+    context = {
+        'student': student,
+        'greeting': greeting,
+        'days': days,
+        'week_data': week_data,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/student_schedule_week.html', context)
+
+
+@login_required
+@student_required
+def student_schedule_day(request, year, month, day):
+    """Детализация расписания на конкретный день."""
+    student = request.user.student_profile
+    try:
+        date = datetime(year, month, day).date()
+    except ValueError:
+        raise Http404("Неверная дата")
+
+    schedules = Schedule.objects.filter(
+        group=student.group,
+        date=date,
+        is_cancelled=False
+    ).select_related('subject', 'teacher').order_by('time_start')
+
+    context = {
+        'student': student,
+        'date': date,
+        'schedules': schedules,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/student_schedule_day.html', context)
+
+
+@login_required
+@student_required
+def student_my_grades(request):
+    """Страница 'Мои оценки' для студента."""
+    student = request.user.student_profile
+    group = student.group
+    subjects = Subject.objects.filter(curriculum_entries__group=group).distinct()
+
+    grades_data = []
+    for subject in subjects:
+        final_grades = Grade.objects.filter(
+            student=student,
+            subject=subject,
+            control_type='final'
+        )
+        exam = None
+        zachet = None
+        for grade in final_grades:
+            if subject.control_form and subject.control_form.name == 'экзамен':
+                exam = grade.score
+            elif subject.control_form and subject.control_form.name == 'зачёт':
+                zachet = 'Зачтено' if grade.is_passed else 'Не зачтено'
+        grades_data.append({
+            'subject': subject,
+            'exam': exam,
+            'zachet': zachet,
+        })
+
+    context = {
+        'student': student,
+        'grades_data': grades_data,
+        'active_tab': 'grades'
+    }
+    return render(request, 'unicron_app/student_grades.html', context)
+
+
+@login_required
+@teacher_required
+def teacher_dashboard(request):
+    return redirect('unicron_app:teacher_account')
+
+# Страница "Аккаунт"
+@login_required
+@teacher_required
+def teacher_account(request):
+    teacher = request.user.teacher_profile
+    now = datetime.now().time()
+    if now < datetime.strptime('12:00', '%H:%M').time():
+        greeting = 'Доброе утро'
+    elif now < datetime.strptime('18:00', '%H:%M').time():
+        greeting = 'Добрый день'
+    else:
+        greeting = 'Добрый вечер'
+
+    context = {
+        'teacher': teacher,
+        'greeting': greeting,
+        'active_tab': 'account'
+    }
+    return render(request, 'unicron_app/teacher_account.html', context)
+
+# Расписание преподавателя на неделю
+@login_required
+@teacher_required
+def teacher_schedule_week(request):
     teacher = request.user.teacher_profile
     today = timezone.now().date()
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
-    schedules = Schedule.objects.filter(teacher=teacher, date__range=[week_start, week_end], is_cancelled=False)
-    curriculums = Curriculum.objects.filter(teacher=teacher)
-    context = {'teacher': teacher, 'schedules': schedules, 'curriculums': curriculums}
-    return render(request, 'unicron_app/teacher_cabinet.html', context)
+    monday = today - timedelta(days=today.weekday())
+    days = [monday + timedelta(days=i) for i in range(5)]  # Пн-Пт
+
+    schedules = Schedule.objects.filter(
+        teacher=teacher,
+        date__range=[monday, monday + timedelta(days=6)],
+        is_cancelled=False
+    ).select_related('subject', 'group').order_by('date', 'time_start')
+
+    week_data = {day: schedules.filter(date=day) for day in days}
+
+    now = datetime.now().time()
+    if now < datetime.strptime('12:00', '%H:%M').time():
+        greeting = 'Доброе утро'
+    elif now < datetime.strptime('18:00', '%H:%M').time():
+        greeting = 'Добрый день'
+    else:
+        greeting = 'Добрый вечер'
+
+    context = {
+        'teacher': teacher,
+        'greeting': greeting,
+        'days': days,
+        'week_data': week_data,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/teacher_schedule_week.html', context)
+
+# Расписание на конкретный день
+@login_required
+@teacher_required
+def teacher_schedule_day(request, year, month, day):
+    teacher = request.user.teacher_profile
+    try:
+        date = datetime(year, month, day).date()
+    except ValueError:
+        raise Http404("Неверная дата")
+
+    schedules = Schedule.objects.filter(
+        teacher=teacher,
+        date=date,
+        is_cancelled=False
+    ).select_related('subject', 'group').order_by('time_start')
+
+    context = {
+        'teacher': teacher,
+        'date': date,
+        'schedules': schedules,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/teacher_schedule_day.html', context)
+
+# Список групп преподавателя
+@login_required
+@teacher_required
+def teacher_groups(request):
+    teacher = request.user.teacher_profile
+    # Получаем все группы, в которых преподаватель ведёт хотя бы один предмет
+    groups = Group.objects.filter(
+        curriculum_entries__teacher=teacher
+    ).distinct()
+
+    context = {
+        'teacher': teacher,
+        'groups': groups,
+        'active_tab': 'groups'
+    }
+    return render(request, 'unicron_app/teacher_groups.html', context)
+
+# Детализация группы: студенты и их оценки
+@login_required
+@teacher_required
+def teacher_group_detail(request, group_id):
+    teacher = request.user.teacher_profile
+    group = get_object_or_404(Group, pk=group_id)
+    # Проверка, что преподаватель действительно ведёт эту группу
+    if not Curriculum.objects.filter(teacher=teacher, group=group).exists():
+        raise Http404("Вы не ведёте эту группу")
+
+    students = group.students.all()
+    # Предметы, которые ведёт преподаватель в этой группе
+    taught_subjects = Subject.objects.filter(
+        curriculum_entries__teacher=teacher,
+        curriculum_entries__group=group
+    )
+
+    # Построим таблицу: для каждого студента оценки по предметам
+    # Сформируем словарь студент -> предметы -> оценки
+    student_data = []
+    for student in students:
+        grades_dict = {}
+        for subject in taught_subjects:
+            final_grades = Grade.objects.filter(
+                student=student,
+                subject=subject,
+                control_type='final'
+            ).order_by('-date')
+            # Возьмём последнюю итоговую оценку
+            last_grade = final_grades.first()
+            if last_grade:
+                if subject.control_form and subject.control_form.name == 'экзамен':
+                    grade_value = last_grade.score
+                elif subject.control_form and subject.control_form.name == 'зачёт':
+                    grade_value = 'Зачтено' if last_grade.is_passed else 'Не зачтено'
+                else:
+                    grade_value = last_grade.score if last_grade.score else last_grade.is_passed
+            else:
+                grade_value = '—'
+            grades_dict[subject.id] = grade_value
+        student_data.append({
+            'student': student,
+            'grades': grades_dict,
+        })
+
+    context = {
+        'teacher': teacher,
+        'group': group,
+        'taught_subjects': taught_subjects,
+        'student_data': student_data,
+        'active_tab': 'groups'
+    }
+    return render(request, 'unicron_app/teacher_group_detail.html', context)
+
 
 @login_required
 @role_required('admin', 'head', 'methodist')
@@ -72,6 +342,7 @@ def admin_cabinet(request):
     }
     return render(request, 'unicron_app/admin_cabinet.html', context)
 
+
 # ───────────────── Расписание ─────────────────
 def schedule_view(request):
     groups = Group.objects.all()
@@ -80,6 +351,7 @@ def schedule_view(request):
     if selected_group:
         schedules = Schedule.objects.filter(group_id=selected_group, date__gte=timezone.now()).order_by('date', 'time_start')
     return render(request, 'unicron_app/schedule.html', {'groups': groups, 'schedules': schedules, 'selected_group': selected_group})
+
 
 @login_required
 @role_required('admin', 'methodist')
@@ -92,6 +364,7 @@ def schedule_add(request):
     else:
         form = ScheduleForm()
     return render(request, 'unicron_app/schedule_form.html', {'form': form, 'action': 'Добавить'})
+
 
 @login_required
 @role_required('admin', 'methodist')
@@ -106,6 +379,7 @@ def schedule_edit(request, pk):
         form = ScheduleForm(instance=schedule)
     return render(request, 'unicron_app/schedule_form.html', {'form': form, 'action': 'Изменить'})
 
+
 # ───────────────── Оценки ─────────────────
 @login_required
 @role_required('teacher')
@@ -113,6 +387,7 @@ def grades_manage(request):
     teacher = request.user.teacher_profile
     curriculums = Curriculum.objects.filter(teacher=teacher)
     return render(request, 'unicron_app/grades_manage.html', {'curriculums': curriculums})
+
 
 @login_required
 @role_required('teacher')
@@ -124,11 +399,11 @@ def grade_add(request):
             form.save()
             return redirect('unicron_app:grades_manage')
     else:
-        # Ограничиваем группы и предметы теми, которые ведёт преподаватель
         form = GradeForm()
         form.fields['group'].queryset = Group.objects.filter(curriculum_entries__teacher=teacher)
         form.fields['subject'].queryset = Subject.objects.filter(curriculum_entries__teacher=teacher)
     return render(request, 'unicron_app/grade_form.html', {'form': form})
+
 
 def student_grades(request, student_id):
     """
@@ -139,7 +414,6 @@ def student_grades(request, student_id):
     subject_id = request.GET.get('subject')
 
     if student_id == 0:
-        # Режим просмотра оценок всей группы по предмету
         if group_id and subject_id:
             grades = Grade.objects.filter(
                 group_id=group_id,
@@ -154,13 +428,13 @@ def student_grades(request, student_id):
         }
         return render(request, 'unicron_app/group_grades.html', context)
     else:
-        # Конкретный студент
         student = get_object_or_404(Student, pk=student_id)
         grades = Grade.objects.filter(student=student).order_by('subject', 'date')
         return render(request, 'unicron_app/student_grades.html', {
             'student': student,
             'grades': grades,
         })
+
 
 # ───────────────── Посещаемость ─────────────────
 @login_required
@@ -197,7 +471,6 @@ def mark_attendance(request, schedule_id):
                 }
             )
         return redirect('unicron_app:attendance')
-    # Получить уже отмеченных
     attendances = Attendance.objects.filter(schedule=schedule)
     attendance_dict = {a.student_id: a.is_present for a in attendances}
     return render(request, 'unicron_app/mark_attendance.html', {
@@ -206,11 +479,13 @@ def mark_attendance(request, schedule_id):
         'attendance_dict': attendance_dict,
     })
 
+
 # ───────────────── Отчёты ─────────────────
 @login_required
 @role_required('admin', 'head', 'methodist')
 def reports(request):
     return render(request, 'unicron_app/reports.html')
+
 
 def export_excel(request):
     workbook = openpyxl.Workbook()
@@ -220,7 +495,6 @@ def export_excel(request):
     grades = Grade.objects.select_related('student', 'subject').all()
     for g in grades:
         ws.append([str(g.student), g.subject.title, g.get_control_type_display(), g.score, g.date])
-    # Сохраняем в BytesIO
     output = BytesIO()
     workbook.save(output)
     output.seek(0)
@@ -228,31 +502,28 @@ def export_excel(request):
     response['Content-Disposition'] = 'attachment; filename=grades.xlsx'
     return response
 
+
 @login_required
 @role_required('admin', 'head', 'methodist')
 def export_pdf(request):
     template = get_template('unicron_app/report_pdf.html')
     groups = Group.objects.all()
-    html_string = template.render(
-        {
-            'groups': groups,
-        }
-    )
+    html_string = template.render({'groups': groups})
+
     config = pdfkit.configuration()
     if hasattr(settings, 'WKHTMLTOPDF_PATH'):
         config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_PATH)
-    
+
     options = {
         'encoding': 'UTF-8',
-        'enable-local-file-access': None
+        'enable-local-file-access': None,
     }
-    
     pdf = pdfkit.from_string(html_string, False, options=options, configuration=config)
-    
     response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Diposition'] = 'attachment; filename="report.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="report.pdf"'
     return response
-    
+
+
 # ───────────────── Заявка на поступление ─────────────────
 def apply(request):
     if request.method == 'POST':

@@ -1,0 +1,42 @@
+{% extends "unicron_app/student_layout.html" %}
+{% load dict_extras %}
+
+{% block student_content %}
+<h2>Расписание на неделю</h2>
+<p>Группа: {{ student.group.title }}</p>
+<div class="table-responsive mt-3">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                {% for day in days %}
+                    <th class="text-center">
+                        {{ day|date:"l" }}<br>
+                        <small>{{ day|date:"d.m" }}</small>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                {% for day in days %}
+                    <td class="align-top">
+                        {% for schedule in week_data|get:day %}
+                            <div class="mb-1">
+                                <a href="{% url 'unicron_app:student_schedule_day' day|date:'Y' day|date:'m' day|date:'d' %}">
+                                    {{ schedule.time_start|time:"H:i" }}-{{ schedule.time_end|time:"H:i" }}<br>
+                                    {{ schedule.subject.title }}
+                                </a>
+                                {% if schedule.format == 'online' and schedule.video_link %}
+                                    <br><a href="{{ schedule.video_link }}" target="_blank" class="badge bg-info">Ссылка</a>
+                                {% endif %}
+                            </div>
+                        {% empty %}
+                            <span class="text-muted">Нет занятий</span>
+                        {% endfor %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

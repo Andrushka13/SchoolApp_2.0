@@ -1,0 +1,49 @@
+{% extends "unicron_app/teacher_layout.html" %}
+{% load dict_extras %}
+
+{% block teacher_content %}
+<h2>Группа: {{ group.title }}</h2>
+<p>Направление: {{ group.direction.title }}</p>
+<p>Количество студентов: {{ group.students.count }}</p>
+
+<h4 class="mt-4">Студенты и успеваемость</h4>
+{% if student_data %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Студент</th>
+                {% for subject in taught_subjects %}
+                    <th class="text-center">{{ subject.title }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in student_data %}
+                <tr>
+                    <td>{{ entry.student.last_name }} {{ entry.student.first_name }}</td>
+                    {% for subject in taught_subjects %}
+                        <td class="text-center">
+                            {% with grade=entry.grades|get:subject.id %}
+                                {% if grade %}
+                                    {% if grade == 'Зачтено' %}
+                                        <span class="badge bg-success">Зачёт</span>
+                                    {% elif grade == 'Не зачтено' %}
+                                        <span class="badge bg-danger">Незачёт</span>
+                                    {% else %}
+                                        {{ grade }}
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Нет студентов или данных об оценках.</p>
+{% endif %}
+<p><a href="{% url 'unicron_app:teacher_groups' %}" class="btn btn-secondary">← К списку групп</a></p>
+{% endblock %}

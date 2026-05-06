@@ -14,9 +14,23 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
 
     # Личные кабинеты
-    path('student/', views.student_cabinet, name='student_cabinet'),
-    path('teacher/', views.teacher_cabinet, name='teacher_cabinet'),
+    # path('teacher/', views.teacher_cabinet, name='teacher_cabinet'),
     path('admin-cabinet/', views.admin_cabinet, name='admin_cabinet'),
+    
+    # Студент – личный кабинет
+    path('student/', views.student_dashboard, name='student_dashboard'),
+    path('student/account/', views.student_account, name='student_account'),
+    path('student/schedule/', views.student_schedule_week, name='student_schedule_week'),
+    path('student/schedule/<int:year>/<int:month>/<int:day>/', views.student_schedule_day, name='student_schedule_day'),
+    path('student/grades/', views.student_my_grades, name='student_my_grades'),
+    
+    # Преподаватель – личный кабинет
+    path('teacher/', views.teacher_dashboard, name='teacher_dashboard'),
+    path('teacher/account/', views.teacher_account, name='teacher_account'),
+    path('teacher/schedule/', views.teacher_schedule_week, name='teacher_schedule_week'),
+    path('teacher/schedule/<int:year>/<int:month>/<int:day>/', views.teacher_schedule_day, name='teacher_schedule_day'),
+    path('teacher/groups/', views.teacher_groups, name='teacher_groups'),
+    path('teacher/groups/<int:group_id>/', views.teacher_group_detail, name='teacher_group_detail'),
 
     # Расписание
     path('schedule/', views.schedule_view, name='schedule'),
@@ -26,7 +40,6 @@ urlpatterns = [
     # Успеваемость
     path('grades/', views.grades_manage, name='grades_manage'),
     path('grades/add/', views.grade_add, name='grade_add'),
-    path('grades/student/<int:student_id>/', views.student_grades, name='student_grades'),
 
     # Посещаемость
     path('attendance/', views.attendance_view, name='attendance'),
