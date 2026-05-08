@@ -1,0 +1,103 @@
+{% extends "unicron_app/base.html" %}
+
+{% block title %}Кабинет методиста{% endblock %}
+
+{% block extra_css %}
+<style>
+    .methodist-wrapper {
+        display: flex;
+        flex: 1;
+    }
+    .sidebar {
+        width: 230px;
+        background-color: #f8f9fa;
+        padding: 1.5rem 1rem;
+        border-left: 1px solid #dee2e6;
+        flex-shrink: 0;
+    }
+    .sidebar .nav-link {
+        color: #333;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+    .sidebar .nav-link.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+    .content {
+        flex: 1;
+        padding: 1.5rem;
+    }
+    .greeting-bar {
+        background-color: #e9ecef;
+        padding: 1rem 1.5rem;
+        text-align: center;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .greeting-bar h3 {
+        margin: 0;
+        font-size: 1.3rem;
+    }
+    .greeting-bar p {
+        margin: 0.25rem 0 0 0;
+        color: #555;
+    }
+    @media (max-width: 768px) {
+        .methodist-wrapper {
+            flex-direction: column;
+        }
+        .sidebar {
+            width: 100%;
+            border-left: none;
+            border-top: 1px solid #dee2e6;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block outer_content %}
+<div class="greeting-bar">
+    {% if greeting %}
+        <h3>{{ greeting }}, {{ user.first_name }} {{ user.last_name }}!</h3>
+    {% else %}
+        <h3>Добро пожаловать, {{ user.first_name }} {{ user.last_name }}!</h3>
+    {% endif %}
+    {% if today %}
+        <p>Сегодня {{ today|date:"d.m.Y" }}, {{ today|date:"l" }}</p>
+    {% endif %}
+</div>
+<div class="methodist-wrapper">
+    <main class="content">
+        {% block methodist_content %}{% endblock %}
+    </main>
+
+    <nav class="sidebar">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'today' %}active{% endif %}" href="{% url 'unicron_app:methodist_today' %}">
+                    📅 Сегодня
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'schedule' %}active{% endif %}" href="{% url 'unicron_app:methodist_schedule_week' %}">
+                    📆 Расписание
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if active_tab == 'groups' %}active{% endif %}" href="{% url 'unicron_app:methodist_groups' %}">
+                    👥 Группы
+                </a>
+            </li>
+            <li class="nav-item mt-3">
+                <form method="post" action="{% url 'unicron_app:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link nav-link text-danger" style="border:none; background:none; padding-left:0;">
+                        🚪 Выйти
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endblock %}

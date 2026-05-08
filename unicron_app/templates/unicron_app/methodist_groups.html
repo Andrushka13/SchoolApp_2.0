@@ -1,0 +1,20 @@
+{% extends "unicron_app/methodist_layout.html" %}
+
+{% block methodist_content %}
+<h2>Все группы</h2>
+
+{% if groups %}
+    <ul class="list-group">
+        {% for group in groups %}
+            <li class="list-group-item">
+                <a href="{% url 'unicron_app:methodist_group_detail' group.id %}">
+                    {{ group.title }} ({{ group.direction.title }})
+                </a>
+                <span class="badge bg-primary rounded-pill float-end">{{ group.students.count }} студ.</span>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>Групп пока нет.</p>
+{% endif %}
+{% endblock %}
