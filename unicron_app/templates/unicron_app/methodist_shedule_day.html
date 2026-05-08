@@ -1,0 +1,41 @@
+{% extends "unicron_app/methodist_layout.html" %}
+
+{% block methodist_content %}
+<h2>Расписание на {{ date|date:"l, d.m.Y" }}</h2>
+
+{% if schedules %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Время</th>
+                <th>Предмет</th>
+                <th>Группа</th>
+                <th>Преподаватель</th>
+                <th>Формат</th>
+                <th>Аудитория / Ссылка</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in schedules %}
+                <tr>
+                    <td>{{ s.time_start|time:"H:i" }} – {{ s.time_end|time:"H:i" }}</td>
+                    <td>{{ s.subject.title }}</td>
+                    <td>{{ s.group.title }}</td>
+                    <td>{{ s.teacher|default:"не назначен" }}</td>
+                    <td>{{ s.get_format_display }}</td>
+                    <td>
+                        {% if s.format == 'offline' %}
+                            {{ s.classroom|default:"не указана" }}
+                        {% else %}
+                            <a href="{{ s.video_link }}" target="_blank">Подключиться</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>В этот день занятий нет.</p>
+{% endif %}
+<p><a href="{% url 'unicron_app:methodist_schedule_week' %}" class="btn btn-secondary">← К неделе</a></p>
+{% endblock %}
