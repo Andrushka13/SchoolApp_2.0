@@ -32,6 +32,12 @@ def student_required(view_func):
 def teacher_required(view_func):
     return user_passes_test(lambda u: u.is_authenticated and u.role == 'teacher', login_url='unicron_app:login')(view_func)
 
+# Декоратор для методиста
+def methodist_required(view_func):
+    return user_passes_test(
+        lambda u: u.is_authenticated and u.role == 'methodist',
+        login_url='unicron_app:login'
+    )(view_func)
 
 # ───────────────── Главная ─────────────────
 @login_required
@@ -42,6 +48,8 @@ def dashboard(request):
         return redirect('unicron_app:student_dashboard')  # ведёт на student_account
     elif role == 'teacher':
         return redirect('unicron_app:teacher_dashboard')
+    elif role == 'methodist':
+        return redirect('unicron_app:methodist_dashboard')
     else:
         return redirect('unicron_app:admin_cabinet')
 
@@ -323,6 +331,120 @@ def teacher_group_detail(request, group_id):
         'active_tab': 'groups'
     }
     return render(request, 'unicron_app/teacher_group_detail.html', context)
+
+
+@login_required
+@methodist_required
+def methodist_today(request):
+    """Главная страница – расписание на сегодня."""
+    today = timezone.now().date()
+    now = datetime.now().time()
+
+    # Приветствие
+    if now < datetime.strptime('12:00', '%H:%M').time():
+        greeting = 'Доброе утро'
+    elif now < datetime.strptime('18:00', '%H:%M').time():
+        greeting = 'Добрый день'
+    else:
+        greeting = 'Добрый вечер'
+
+    # Расписание на сегодня для всех групп (или можно оставить только активные)
+    schedules = Schedule.objects.filter(
+        date=today,
+        is_cancelled=False
+    ).select_related('group', 'subject', 'teacher').order_by('time_start')
+
+    context = {
+        'greeting': greeting,
+        'today': today,
+        'schedules': schedules,
+        'active_tab': 'today'
+    }
+    return render(request, 'unicron_app/methodist_today.html', context)
+
+
+# ───────────────── Методист ─────────────────
+
+@login_required
+@methodist_required
+def methodist_dashboard(request):
+    """Точка входа для методиста – перенаправление на страницу 'Сегодня'."""
+    return redirect('unicron_app:methodist_today')
+
+
+@login_required
+@methodist_required
+def methodist_schedule_week(request):
+    """Расписание на текущую неделю (все группы / сводное)."""
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+    days = [monday + timedelta(days=i) for i in range(5)]
+
+    schedules = Schedule.objects.filter(
+        date__range=[monday, monday + timedelta(days=6)],
+        is_cancelled=False
+    ).select_related('group', 'subject', 'teacher').order_by('date', 'time_start')
+
+    week_data = {day: schedules.filter(date=day) for day in days}
+
+    context = {
+        'days': days,
+        'week_data': week_data,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/methodist_schedule_week.html', context)
+
+
+@login_required
+@methodist_required
+def methodist_schedule_day(request, year, month, day):
+    """Детализация расписания на конкретный день."""
+    try:
+        date = datetime(year, month, day).date()
+    except ValueError:
+        raise Http404("Неверная дата")
+
+    schedules = Schedule.objects.filter(
+        date=date,
+        is_cancelled=False
+    ).select_related('group', 'subject', 'teacher').order_by('time_start')
+
+    context = {
+        'date': date,
+        'schedules': schedules,
+        'active_tab': 'schedule'
+    }
+    return render(request, 'unicron_app/methodist_schedule_day.html', context)
+
+
+@login_required
+@methodist_required
+def methodist_groups(request):
+    """Список всех групп."""
+    groups = Group.objects.all().select_related('direction').order_by('title')
+
+    context = {
+        'groups': groups,
+        'active_tab': 'groups'
+    }
+    return render(request, 'unicron_app/methodist_groups.html', context)
+
+
+@login_required
+@methodist_required
+def methodist_group_detail(request, group_id):
+    """Детальная информация о группе: студенты, учебный план."""
+    group = get_object_or_404(Group, pk=group_id)
+    students = group.students.all()
+    curriculums = Curriculum.objects.filter(group=group).select_related('subject', 'teacher')
+
+    context = {
+        'group': group,
+        'students': students,
+        'curriculums': curriculums,
+        'active_tab': 'groups'
+    }
+    return render(request, 'unicron_app/methodist_group_detail.html', context)
 
 
 @login_required
