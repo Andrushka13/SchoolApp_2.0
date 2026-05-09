@@ -7,7 +7,7 @@ from django.utils import timezone
 from unicron_app.models import (
     User, Position, ControlForm,
     Direction, Group, Student, Teacher, Subject,
-    Curriculum, Schedule, Attendance, Grade
+    Curriculum, Schedule, Attendance, Grade, Secretary
 )
 
 
@@ -44,7 +44,7 @@ class Command(BaseCommand):
         self.stdout.write('Создание пользователей...')
         default_password = 'password_1'
 
-        # Администратор, руководитель, методист
+        # Администратор, руководитель, методист, секретарь
         admin_user = User.objects.create_user(
             username='admin',
             password=default_password,
@@ -58,14 +58,26 @@ class Command(BaseCommand):
             password=default_password,
             role='head',
             email='head@unicron.ru',
-            is_staff=True
         )
         methodist_user = User.objects.create_user(
             username='methodist',
             password=default_password,
             role='methodist',
             email='methodist@unicron.ru',
-            is_staff=True
+        )
+        secretary_user = User.objects.create_user(
+            username='secretary',
+            password=default_password,
+            role='secretary',
+            email='secretary@unicron.ru',
+        )
+        Secretary.objects.create(
+            user=secretary_user,
+            first_name='Елена',
+            last_name='Ветрова',
+            middle_name='Сергеевна',
+            phone='+79001234567',
+            email=secretary_user.email,
         )
 
         # Преподаватели (10 человек)

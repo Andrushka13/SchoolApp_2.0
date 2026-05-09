@@ -45,6 +45,7 @@ class User(AbstractUser):
         ADMIN = 'admin', 'Администратор'
         HEAD = 'head', 'Руководитель'
         METHODIST = 'methodist', 'Методист'
+        SECRETARY = 'secretary', 'Секретарь приёмной комиссии'
 
     role = models.CharField(max_length=20, choices=Role.choices, verbose_name="Роль")
 
@@ -184,6 +185,25 @@ class Teacher(models.Model):
 
     def __str__(self):
         return f"{self.last_name} {self.first_name}"
+    
+
+class Secretary(models.Model):
+    """Секретарь приёмной комиссии"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='secretary_profile')
+    first_name = models.CharField(max_length=100, verbose_name="Имя")
+    last_name = models.CharField(max_length=100, verbose_name="Фамилия")
+    middle_name = models.CharField(max_length=100, verbose_name="Отчество")
+    phone = models.CharField(max_length=20, unique=True, verbose_name="Номер телефона")
+    email = models.EmailField(unique=True, verbose_name="Email")
+    photo = models.ImageField(upload_to='secretary_photos/', blank=True, null=True, verbose_name="Фотография")
+    
+    class Meta:
+        verbose_name = 'Секретарь'
+        verbose_name_plural = 'Секретари'
+    
+    def __str__(self):
+        return f"{self.last_name} {self.first_name}"
+    
 
 
 class Subject(models.Model):

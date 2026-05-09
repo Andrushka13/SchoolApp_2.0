@@ -33,12 +33,12 @@ urlpatterns = [
     path('teacher/groups/<int:group_id>/', views.teacher_group_detail, name='teacher_group_detail'),
     
     # Методист
-    path('methodist/', views.methodist_dashboard, name='methodist_dashboard'),
-    path('methodist/today/', views.methodist_today, name='methodist_today'),
-    path('methodist/schedule/', views.methodist_schedule_week, name='methodist_schedule_week'),
-    path('methodist/schedule/<int:year>/<int:month>/<int:day>/', views.methodist_schedule_day, name='methodist_schedule_day'),
-    path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
-    path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
+    # path('methodist/', views.methodist_dashboard, name='methodist_dashboard'),
+    # path('methodist/today/', views.methodist_today, name='methodist_today'),
+    # path('methodist/schedule/', views.methodist_schedule_week, name='methodist_schedule_week'),
+    # path('methodist/schedule/<int:year>/<int:month>/<int:day>/', views.methodist_schedule_day, name='methodist_schedule_day'),
+    # path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
+    # path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
 
         # Методист
     path('methodist/', views.methodist_dashboard, name='methodist_dashboard'),
@@ -48,6 +48,14 @@ urlpatterns = [
     path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
     path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
     path('methodist/generate-schedule/', views.methodist_generate_schedule, name='methodist_generate_schedule'),
+    
+    # Секретарь приёмной комиссии
+    path('secretary/', views.secretary_dashboard,name='secretary_dashboard'),
+    path('secretary/today/', views.secretary_today,name='secretary_today'),
+    # path('secretary/schedule/', views.secretary_schedule_week,name='secretary_schedule_week'),
+    # path('secretary/schedule/<int:year>/<int:month>/<int:day>/',views.secretary_schedule_day, name='secretary_schedule_day'),
+    # path('secretary/groups/', views.secretary_groups,name='secretary_groups'),
+    # path('secretary/groups/<int:group_id>/', views.secretary_group_detail, name='secretary_group_detail'),
 
     # Расписание
     path('schedule/', views.schedule_view, name='schedule'),

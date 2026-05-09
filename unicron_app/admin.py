@@ -36,3 +36,7 @@ class SubjectAdmin(admin.ModelAdmin):
 @admin.register(Curriculum, Schedule, Attendance, Grade)
 class DefaultAdmin(admin.ModelAdmin):
     pass
+
+@admin.register(Secretary)
+class SecretaryAdmin(admin.ModelAdmin):
+    list_display = ('last_name', 'first_name', 'phone', 'email')

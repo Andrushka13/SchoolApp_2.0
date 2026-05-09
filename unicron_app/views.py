@@ -40,6 +40,12 @@ def methodist_required(view_func):
         lambda u: u.is_authenticated and u.role == 'methodist',
         login_url='unicron_app:login'
     )(view_func)
+    
+def secretary_required(view_func):
+    return user_passes_test(
+        lambda u: u.is_authenticated and u.role == 'secretary',
+        login_url='unicron_app:login'
+    )(view_func)
 
 
 # ───────────────── Главная ─────────────────
@@ -53,6 +59,8 @@ def dashboard(request):
         return redirect('unicron_app:teacher_dashboard')
     elif role == 'methodist':
         return redirect('unicron_app:methodist_dashboard')
+    elif role == 'secretary':
+        return redirect('unicron_app:secretary_dashboard')
     else:
         return redirect('unicron_app:admin_cabinet')
 
@@ -527,6 +535,32 @@ def methodist_group_detail(request, group_id):
         'active_tab': 'groups'
     }
     return render(request, 'unicron_app/methodist_group_detail.html', context)
+
+
+@login_required
+@secretary_required
+def secretary_dashboard(request):
+    return redirect('unicron_app:secretary_today')
+
+
+@login_required
+@secretary_required
+def secretary_today(request):
+    today = timezone.now().date()
+    # now = datetime.now().time()
+
+    schedules = Schedule.objects.filter(
+        date=today,
+        is_cancelled=False
+    ).select_related('group', 'subject', 'teacher').order_by('time_start')
+
+    context = {
+        'today': today,
+        'schedules': schedules,
+        'active_tab': 'today'
+    }
+    return render(request, 'unicron_app/secretary_today.html', context)
+
 
 
 # ───────────────── Администратор и общие ─────────────────
