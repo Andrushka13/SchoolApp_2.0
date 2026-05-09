@@ -40,6 +40,14 @@ urlpatterns = [
     path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
     path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
 
+        # Методист
+    path('methodist/', views.methodist_dashboard, name='methodist_dashboard'),
+    path('methodist/today/', views.methodist_today, name='methodist_today'),
+    path('methodist/schedule/', views.methodist_schedule_week, name='methodist_schedule_week'),
+    path('methodist/schedule/<int:year>/<int:month>/<int:day>/', views.methodist_schedule_day, name='methodist_schedule_day'),
+    path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
+    path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
+
     # Расписание
     path('schedule/', views.schedule_view, name='schedule'),
     path('schedule/add/', views.schedule_add, name='schedule_add'),

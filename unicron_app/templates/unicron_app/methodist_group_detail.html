@@ -1,0 +1,65 @@
+{% extends "unicron_app/methodist_layout.html" %}
+
+{% block methodist_content %}
+<h2>Группа: {{ group.title }}</h2>
+<p><strong>Направление:</strong> {{ group.direction.title }}</p>
+<p><strong>Форма обучения:</strong> {{ group.get_form_display }}</p>
+<p><strong>Статус:</strong> {{ group.get_status_display }}</p>
+<p><strong>Период обучения:</strong> {{ group.date_start|date:"d.m.Y" }} – {{ group.date_end|date:"d.m.Y" }}</p>
+
+<h4 class="mt-4">Студенты ({{ students.count }})</h4>
+{% if students %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Фамилия</th>
+                <th>Имя</th>
+                <th>Телефон</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ student.last_name }}</td>
+                    <td>{{ student.first_name }}</td>
+                    <td>{{ student.phone }}</td>
+                    <td>{{ student.email }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>В группе нет студентов.</p>
+{% endif %}
+
+<h4 class="mt-4">Учебный план</h4>
+{% if curriculums %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Предмет</th>
+                <th>Часы</th>
+                <th>Форма контроля</th>
+                <th>Преподаватель</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in curriculums %}
+                <tr>
+                    <td>{{ c.subject.title }}</td>
+                    <td>{{ c.subject.hours }}</td>
+                    <td>{{ c.subject.control_form.name|default:"не указана" }}</td>
+                    <td>{{ c.teacher|default:"не назначен" }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Учебный план не сформирован.</p>
+{% endif %}
+
+<p><a href="{% url 'unicron_app:methodist_groups' %}" class="btn btn-secondary">← К списку групп</a></p>
+{% endblock %}
