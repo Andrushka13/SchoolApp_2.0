@@ -32,17 +32,12 @@ def student_required(view_func):
 def teacher_required(view_func):
     return user_passes_test(lambda u: u.is_authenticated and u.role == 'teacher', login_url='unicron_app:login')(view_func)
 
-<<<<<<< HEAD
 # Декоратор для методиста
 def methodist_required(view_func):
     return user_passes_test(
         lambda u: u.is_authenticated and u.role == 'methodist',
         login_url='unicron_app:login'
     )(view_func)
-=======
-def methodist_required(view_func):
-    return user_passes_test(lambda u: u.is_authenticated and u.role == 'methodist', login_url='unicron_app:login')(view_func)
->>>>>>> ae4400960e0b523eb781623dede4502ccc8d4075
 
 # ───────────────── Главная ─────────────────
 @login_required
