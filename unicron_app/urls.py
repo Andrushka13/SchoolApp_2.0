@@ -47,6 +47,7 @@ urlpatterns = [
     path('methodist/schedule/<int:year>/<int:month>/<int:day>/', views.methodist_schedule_day, name='methodist_schedule_day'),
     path('methodist/groups/', views.methodist_groups, name='methodist_groups'),
     path('methodist/groups/<int:group_id>/', views.methodist_group_detail, name='methodist_group_detail'),
+    path('methodist/generate-schedule/', views.methodist_generate_schedule, name='methodist_generate_schedule'),
 
     # Расписание
     path('schedule/', views.schedule_view, name='schedule'),

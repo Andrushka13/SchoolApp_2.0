@@ -37,5 +37,7 @@
 {% else %}
     <p>В этот день занятий нет.</p>
 {% endif %}
-<p><a href="{% url 'unicron_app:methodist_schedule_week' %}" class="btn btn-secondary">← К неделе</a></p>
+<a href="{% url 'unicron_app:methodist_schedule_week' %}?week_offset={{ request.GET.week_offset|default:'0' }}" class="btn btn-secondary">
+        ← К неделе
+    </a>
 {% endblock %}

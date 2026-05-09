@@ -1,10 +1,13 @@
 # unicron_app/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core.exceptions import ObjectDoesNotExist
+from django.contrib import messages
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.utils import timezone
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseRedirect
+from django.urls import reverse
 from django.db.models import Avg, Count, Q
+from django.db import transaction
 from datetime import datetime, timedelta
 from django.template.loader import get_template
 from io import BytesIO
@@ -32,12 +35,12 @@ def student_required(view_func):
 def teacher_required(view_func):
     return user_passes_test(lambda u: u.is_authenticated and u.role == 'teacher', login_url='unicron_app:login')(view_func)
 
-# Декоратор для методиста
 def methodist_required(view_func):
     return user_passes_test(
         lambda u: u.is_authenticated and u.role == 'methodist',
         login_url='unicron_app:login'
     )(view_func)
+
 
 # ───────────────── Главная ─────────────────
 @login_required
@@ -45,7 +48,7 @@ def dashboard(request):
     """Перенаправление в личный кабинет по роли."""
     role = request.user.role
     if role == 'student':
-        return redirect('unicron_app:student_dashboard')  # ведёт на student_account
+        return redirect('unicron_app:student_dashboard')
     elif role == 'teacher':
         return redirect('unicron_app:teacher_dashboard')
     elif role == 'methodist':
@@ -54,18 +57,16 @@ def dashboard(request):
         return redirect('unicron_app:admin_cabinet')
 
 
-# ───────────────── Личные кабинеты ─────────────────
+# ───────────────── Студент ─────────────────
 @login_required
 @student_required
 def student_dashboard(request):
-    """Точка входа для студента, перенаправляем на страницу аккаунта."""
     return redirect('unicron_app:student_account')
 
 
 @login_required
 @student_required
 def student_account(request):
-    """Страница 'Аккаунт' – личное дело."""
     student = request.user.student_profile
     now = datetime.now().time()
     if now < datetime.strptime('12:00', '%H:%M').time():
@@ -85,11 +86,10 @@ def student_account(request):
 @login_required
 @student_required
 def student_schedule_week(request):
-    """Расписание группы студента на текущую неделю."""
     student = request.user.student_profile
     today = timezone.now().date()
     monday = today - timedelta(days=today.weekday())
-    days = [monday + timedelta(days=i) for i in range(5)]  # Пн-Пт
+    days = [monday + timedelta(days=i) for i in range(5)]
 
     schedules = Schedule.objects.filter(
         group=student.group,
@@ -120,7 +120,6 @@ def student_schedule_week(request):
 @login_required
 @student_required
 def student_schedule_day(request, year, month, day):
-    """Детализация расписания на конкретный день."""
     student = request.user.student_profile
     try:
         date = datetime(year, month, day).date()
@@ -145,7 +144,6 @@ def student_schedule_day(request, year, month, day):
 @login_required
 @student_required
 def student_my_grades(request):
-    """Страница 'Мои оценки' для студента."""
     student = request.user.student_profile
     group = student.group
     subjects = Subject.objects.filter(curriculum_entries__group=group).distinct()
@@ -178,12 +176,13 @@ def student_my_grades(request):
     return render(request, 'unicron_app/student_grades.html', context)
 
 
+# ───────────────── Преподаватель ─────────────────
 @login_required
 @teacher_required
 def teacher_dashboard(request):
     return redirect('unicron_app:teacher_account')
 
-# Страница "Аккаунт"
+
 @login_required
 @teacher_required
 def teacher_account(request):
@@ -203,14 +202,14 @@ def teacher_account(request):
     }
     return render(request, 'unicron_app/teacher_account.html', context)
 
-# Расписание преподавателя на неделю
+
 @login_required
 @teacher_required
 def teacher_schedule_week(request):
     teacher = request.user.teacher_profile
     today = timezone.now().date()
     monday = today - timedelta(days=today.weekday())
-    days = [monday + timedelta(days=i) for i in range(5)]  # Пн-Пт
+    days = [monday + timedelta(days=i) for i in range(5)]
 
     schedules = Schedule.objects.filter(
         teacher=teacher,
@@ -237,7 +236,7 @@ def teacher_schedule_week(request):
     }
     return render(request, 'unicron_app/teacher_schedule_week.html', context)
 
-# Расписание на конкретный день
+
 @login_required
 @teacher_required
 def teacher_schedule_day(request, year, month, day):
@@ -261,12 +260,11 @@ def teacher_schedule_day(request, year, month, day):
     }
     return render(request, 'unicron_app/teacher_schedule_day.html', context)
 
-# Список групп преподавателя
+
 @login_required
 @teacher_required
 def teacher_groups(request):
     teacher = request.user.teacher_profile
-    # Получаем все группы, в которых преподаватель ведёт хотя бы один предмет
     groups = Group.objects.filter(
         curriculum_entries__teacher=teacher
     ).distinct()
@@ -278,25 +276,21 @@ def teacher_groups(request):
     }
     return render(request, 'unicron_app/teacher_groups.html', context)
 
-# Детализация группы: студенты и их оценки
+
 @login_required
 @teacher_required
 def teacher_group_detail(request, group_id):
     teacher = request.user.teacher_profile
     group = get_object_or_404(Group, pk=group_id)
-    # Проверка, что преподаватель действительно ведёт эту группу
     if not Curriculum.objects.filter(teacher=teacher, group=group).exists():
         raise Http404("Вы не ведёте эту группу")
 
     students = group.students.all()
-    # Предметы, которые ведёт преподаватель в этой группе
     taught_subjects = Subject.objects.filter(
         curriculum_entries__teacher=teacher,
         curriculum_entries__group=group
     )
 
-    # Построим таблицу: для каждого студента оценки по предметам
-    # Сформируем словарь студент -> предметы -> оценки
     student_data = []
     for student in students:
         grades_dict = {}
@@ -306,7 +300,6 @@ def teacher_group_detail(request, group_id):
                 subject=subject,
                 control_type='final'
             ).order_by('-date')
-            # Возьмём последнюю итоговую оценку
             last_grade = final_grades.first()
             if last_grade:
                 if subject.control_form and subject.control_form.name == 'экзамен':
@@ -333,22 +326,19 @@ def teacher_group_detail(request, group_id):
     return render(request, 'unicron_app/teacher_group_detail.html', context)
 
 
-# ---------Методист--------------
+# ───────────────── Методист (единственные определения) ─────────────────
 @login_required
 @methodist_required
 def methodist_dashboard(request):
-    """Точка входа для методиста – перенаправление на страницу 'Сегодня'."""
     return redirect('unicron_app:methodist_today')
 
 
 @login_required
 @methodist_required
 def methodist_today(request):
-    """Главная страница – расписание на сегодня."""
     today = timezone.now().date()
     now = datetime.now().time()
 
-    # Приветствие
     if now < datetime.strptime('12:00', '%H:%M').time():
         greeting = 'Доброе утро'
     elif now < datetime.strptime('18:00', '%H:%M').time():
@@ -356,7 +346,6 @@ def methodist_today(request):
     else:
         greeting = 'Добрый вечер'
 
-    # Расписание на сегодня для всех групп (или можно оставить только активные)
     schedules = Schedule.objects.filter(
         date=today,
         is_cancelled=False
@@ -374,9 +363,14 @@ def methodist_today(request):
 @login_required
 @methodist_required
 def methodist_schedule_week(request):
-    """Расписание на текущую неделю (все группы / сводное)."""
+    """Расписание с навигацией по неделям."""
     today = timezone.now().date()
-    monday = today - timedelta(days=today.weekday())
+    try:
+        week_offset = int(request.GET.get('week_offset', '0'))
+    except ValueError:
+        week_offset = 0
+
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     days = [monday + timedelta(days=i) for i in range(5)]
 
     schedules = Schedule.objects.filter(
@@ -385,13 +379,102 @@ def methodist_schedule_week(request):
     ).select_related('group', 'subject', 'teacher').order_by('date', 'time_start')
 
     week_data = {day: schedules.filter(date=day) for day in days}
+    has_schedule = schedules.exists()
 
     context = {
         'days': days,
         'week_data': week_data,
+        'monday': monday,
+        'week_offset': week_offset,
+        'has_schedule': has_schedule,
         'active_tab': 'schedule'
     }
     return render(request, 'unicron_app/methodist_schedule_week.html', context)
+
+
+@login_required
+@methodist_required
+def methodist_generate_schedule(request):
+    """Генерация расписания на выбранную неделю по образу предыдущей."""
+    if request.method != 'POST':
+        return redirect('unicron_app:methodist_schedule_week')
+
+    try:
+        week_offset = int(request.POST.get('week_offset', '0'))
+    except ValueError:
+        messages.error(request, 'Некорректный параметр недели.')
+        return redirect('unicron_app:methodist_schedule_week')
+
+    confirm = request.POST.get('confirm') == 'yes'
+
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+
+    existing = Schedule.objects.filter(
+        date__range=[monday, monday + timedelta(days=6)]
+    ).exists()
+
+    if existing and not confirm:
+        messages.warning(request, 'Подтвердите действие.')
+        return redirect(f'{reverse("unicron_app:methodist_schedule_week")}?week_offset={week_offset}')
+
+    previous_monday = monday - timedelta(weeks=1)
+    previous_schedules = Schedule.objects.filter(
+        date__range=[previous_monday, previous_monday + timedelta(days=6)]
+    ).select_related('subject', 'teacher', 'group')
+
+    if not previous_schedules.exists():
+        messages.warning(request, 'Нет расписания предыдущей недели для копирования.')
+        return redirect(f'{reverse("unicron_app:methodist_schedule_week")}?week_offset={week_offset}')
+
+    if existing and confirm:
+        Schedule.objects.filter(
+            date__range=[monday, monday + timedelta(days=6)]
+        ).delete()
+
+    with transaction.atomic():
+        for prev in previous_schedules:
+            new_date = prev.date + timedelta(weeks=1)
+            teacher = prev.teacher
+            new_schedule = Schedule(
+                group=prev.group,
+                subject=prev.subject,
+                teacher=teacher,
+                date=new_date,
+                time_start=prev.time_start,
+                time_end=prev.time_end,
+                format=prev.format,
+                classroom=prev.classroom,
+                video_link=prev.video_link,
+                is_cancelled=False
+            )
+            try:
+                new_schedule.save()
+            except ValidationError:
+                if teacher is None:
+                    continue
+                alternative_teachers = Teacher.objects.filter(
+                    curriculum_entries__group=prev.group,
+                    curriculum_entries__subject=prev.subject
+                ).exclude(user_id=teacher.user_id)
+                assigned = False
+                for alt in alternative_teachers:
+                    new_schedule.teacher = alt
+                    try:
+                        new_schedule.save()
+                        assigned = True
+                        break
+                    except ValidationError:
+                        continue
+                if not assigned:
+                    new_schedule.teacher = None
+                    try:
+                        new_schedule.save()
+                    except ValidationError:
+                        continue
+
+    messages.success(request, 'Расписание сформировано.')
+    return redirect(f'{reverse("unicron_app:methodist_schedule_week")}?week_offset={week_offset}')
 
 
 @login_required
@@ -446,120 +529,7 @@ def methodist_group_detail(request, group_id):
     return render(request, 'unicron_app/methodist_group_detail.html', context)
 
 
-@login_required
-@methodist_required
-def methodist_today(request):
-    """Главная страница – расписание на сегодня."""
-    today = timezone.now().date()
-    now = datetime.now().time()
-
-    # Приветствие
-    if now < datetime.strptime('12:00', '%H:%M').time():
-        greeting = 'Доброе утро'
-    elif now < datetime.strptime('18:00', '%H:%M').time():
-        greeting = 'Добрый день'
-    else:
-        greeting = 'Добрый вечер'
-
-    # Расписание на сегодня для всех групп (или можно оставить только активные)
-    schedules = Schedule.objects.filter(
-        date=today,
-        is_cancelled=False
-    ).select_related('group', 'subject', 'teacher').order_by('time_start')
-
-    context = {
-        'greeting': greeting,
-        'today': today,
-        'schedules': schedules,
-        'active_tab': 'today'
-    }
-    return render(request, 'unicron_app/methodist_today.html', context)
-
-
-# ───────────────── Методист ─────────────────
-
-@login_required
-@methodist_required
-def methodist_dashboard(request):
-    """Точка входа для методиста – перенаправление на страницу 'Сегодня'."""
-    return redirect('unicron_app:methodist_today')
-
-
-@login_required
-@methodist_required
-def methodist_schedule_week(request):
-    """Расписание на текущую неделю (все группы / сводное)."""
-    today = timezone.now().date()
-    monday = today - timedelta(days=today.weekday())
-    days = [monday + timedelta(days=i) for i in range(5)]
-
-    schedules = Schedule.objects.filter(
-        date__range=[monday, monday + timedelta(days=6)],
-        is_cancelled=False
-    ).select_related('group', 'subject', 'teacher').order_by('date', 'time_start')
-
-    week_data = {day: schedules.filter(date=day) for day in days}
-
-    context = {
-        'days': days,
-        'week_data': week_data,
-        'active_tab': 'schedule'
-    }
-    return render(request, 'unicron_app/methodist_schedule_week.html', context)
-
-
-@login_required
-@methodist_required
-def methodist_schedule_day(request, year, month, day):
-    """Детализация расписания на конкретный день."""
-    try:
-        date = datetime(year, month, day).date()
-    except ValueError:
-        raise Http404("Неверная дата")
-
-    schedules = Schedule.objects.filter(
-        date=date,
-        is_cancelled=False
-    ).select_related('group', 'subject', 'teacher').order_by('time_start')
-
-    context = {
-        'date': date,
-        'schedules': schedules,
-        'active_tab': 'schedule'
-    }
-    return render(request, 'unicron_app/methodist_schedule_day.html', context)
-
-
-@login_required
-@methodist_required
-def methodist_groups(request):
-    """Список всех групп."""
-    groups = Group.objects.all().select_related('direction').order_by('title')
-
-    context = {
-        'groups': groups,
-        'active_tab': 'groups'
-    }
-    return render(request, 'unicron_app/methodist_groups.html', context)
-
-
-@login_required
-@methodist_required
-def methodist_group_detail(request, group_id):
-    """Детальная информация о группе: студенты, учебный план."""
-    group = get_object_or_404(Group, pk=group_id)
-    students = group.students.all()
-    curriculums = Curriculum.objects.filter(group=group).select_related('subject', 'teacher')
-
-    context = {
-        'group': group,
-        'students': students,
-        'curriculums': curriculums,
-        'active_tab': 'groups'
-    }
-    return render(request, 'unicron_app/methodist_group_detail.html', context)
-
-
+# ───────────────── Администратор и общие ─────────────────
 @login_required
 @role_required('admin', 'head', 'methodist')
 def admin_cabinet(request):
@@ -578,7 +548,7 @@ def admin_cabinet(request):
     return render(request, 'unicron_app/admin_cabinet.html', context)
 
 
-# ───────────────── Расписание ─────────────────
+# ───────────────── Расписание (общий раздел) ─────────────────
 def schedule_view(request):
     groups = Group.objects.all()
     selected_group = request.GET.get('group')
@@ -641,10 +611,6 @@ def grade_add(request):
 
 
 def student_grades(request, student_id):
-    """
-    Если student_id = 0, то показываем оценки всех студентов по фильтру (группа, предмет).
-    Иначе — оценки конкретного студента.
-    """
     group_id = request.GET.get('group')
     subject_id = request.GET.get('subject')
 

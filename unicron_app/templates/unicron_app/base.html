@@ -12,25 +12,15 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand mx-auto" href="{% url 'unicron_app:dashboard' %}">Юникрон</a>
-            {% comment %} <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button> {% endcomment %}
-            {% comment %} <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <span class="nav-link">Личный кабинет: {{ user.username }}</span>
-                        </li>
-                        <!-- Выход убран, теперь он в ролевом меню -->
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'unicron_app:login' %}">Войти</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </div> {% endcomment %}
         </div>
     </nav>
+
+    {% if user.is_authenticated %}
+        <div style="text-align: center; padding: 12px 20px; background-color: #e9ecef; border-bottom: 1px solid #dee2e6;">
+            <h2 style="margin: 0; font-size: 1.4rem;">{{ greeting }}</h2>
+            <h3 style="margin: 5px 0 0; font-size: 1.1rem; font-weight: normal;">Сегодня: {{ today|date:"d.m.Y" }}, {{ today|date:"l" }}</h3>
+        </div>
+    {% endif %}
 
     {% block outer_content %}
     <div class="container mt-4">

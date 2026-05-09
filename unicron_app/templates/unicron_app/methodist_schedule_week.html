@@ -1,40 +1,133 @@
 {% extends "unicron_app/methodist_layout.html" %}
 {% load dict_extras %}
+{% load math_filter %}
 
 {% block methodist_content %}
-<h2>Расписание на неделю</h2>
-
-<div class="table-responsive mt-3">
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                {% for day in days %}
-                    <th class="text-center">
-                        {{ day|date:"l" }}<br>
-                        <small>{{ day|date:"d.m" }}</small>
-                    </th>
-                {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                {% for day in days %}
-                    <td class="align-top">
-                        {% for schedule in week_data|get:day %}
-                            <div class="mb-1">
-                                <a href="{% url 'unicron_app:methodist_schedule_day' day|date:'Y' day|date:'m' day|date:'d' %}">
-                                    <strong>{{ schedule.time_start|time:"H:i" }}-{{ schedule.time_end|time:"H:i" }}</strong><br>
-                                    {{ schedule.subject.title }}<br>
-                                    <small class="text-muted">{{ schedule.group.title }}</small>
-                                </a>
-                            </div>
-                        {% empty %}
-                            <span class="text-muted">Нет занятий</span>
-                        {% endfor %}
-                    </td>
-                {% endfor %}
-            </tr>
-        </tbody>
-    </table>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="?week_offset={{ week_offset|add:'-1' }}" class="btn btn-outline-secondary">&larr;</a>
+    <h2 class="mb-0">Расписание на неделю</h2>
+    <a href="?week_offset={{ week_offset|add:'1' }}" class="btn btn-outline-secondary">&rarr;</a>
 </div>
+
+{% if not has_schedule %}
+    <h3 class="text-center text-muted">На данную неделю нет сформированного расписания</h3>
+{% else %}
+    <div class="table-responsive mt-3">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    {% for day in days %}
+                        <th class="text-center">
+                            {{ day|date:"l" }}<br>
+                            <small>{{ day|date:"d.m" }}</small>
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for day in days %}
+                        <td class="align-top">
+                            {% for schedule in week_data|get:day %}
+                                <div class="mb-1">
+                                    <a href="{% url 'unicron_app:methodist_schedule_day' day|date:'Y' day|date:'m' day|date:'d' %}?week_offset={{ week_offset }}">
+                                        <strong>{{ schedule.time_start|time:"H:i" }}-{{ schedule.time_end|time:"H:i" }}</strong><br>
+                                        {{ schedule.subject.title }}<br>
+                                        <small class="text-muted">{{ schedule.group.title }}</small>
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+{% if week_offset >= 0 %}
+    <div class="text-center mt-4">
+        <button id="generateBtn" class="btn btn-primary" data-has-schedule="{{ has_schedule|lower }}">
+            Сформировать расписание
+        </button>
+    </div>
+{% endif %}
+
+<!-- Модальное окно подтверждения -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h3>Расписание на данную неделю уже сформировано</h3>
+                <p>Продолжить?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+                <button type="button" class="btn btn-primary" id="confirmYes">Да</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generateBtn');
+        if (!generateBtn) return;
+
+        const hasSchedule = generateBtn.dataset.hasSchedule === 'true';
+
+        generateBtn.addEventListener('click', function() {
+            if (hasSchedule) {
+                // Показать модальное окно
+                const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+                modal.show();
+
+                // Обработчик кнопки "Да"
+                document.getElementById('confirmYes').onclick = function() {
+                    sendGenerateRequest(true);
+                    modal.hide();
+                };
+            } else {
+                sendGenerateRequest(false);
+            }
+        });
+
+        function sendGenerateRequest(confirm) {
+            const weekOffset = new URLSearchParams(window.location.search).get('week_offset') || '0';
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{% url "unicron_app:methodist_generate_schedule" %}';
+            form.style.display = 'none';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(csrfInput);
+
+            const offsetInput = document.createElement('input');
+            offsetInput.type = 'hidden';
+            offsetInput.name = 'week_offset';
+            offsetInput.value = weekOffset;
+            form.appendChild(offsetInput);
+
+            if (confirm) {
+                const confirmInput = document.createElement('input');
+                confirmInput.type = 'hidden';
+                confirmInput.name = 'confirm';
+                confirmInput.value = 'yes';
+                form.appendChild(confirmInput);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+</script>
 {% endblock %}

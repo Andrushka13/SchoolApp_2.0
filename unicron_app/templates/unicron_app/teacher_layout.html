@@ -29,12 +29,7 @@
         flex: 1;
         padding: 1.5rem;
     }
-    .greeting-bar {
-        background-color: #e9ecef;
-        padding: 0.75rem 1.5rem;
-        font-size: 1.1rem;
-        border-bottom: 1px solid #dee2e6;
-    }
+    
     @media (max-width: 768px) {
         .teacher-wrapper {
             flex-direction: column;
@@ -49,13 +44,7 @@
 {% endblock %}
 
 {% block outer_content %}
-<div class="greeting-bar">
-    {% if greeting %}
-        {{ greeting }}, {{ teacher.first_name }} {{ teacher.middle_name }}!
-    {% else %}
-        Добро пожаловать, {{ teacher.first_name }} {{ teacher.middle_name }}!
-    {% endif %}
-</div>
+
 <div class="teacher-wrapper">
     <main class="content">
         {% block teacher_content %}{% endblock %}

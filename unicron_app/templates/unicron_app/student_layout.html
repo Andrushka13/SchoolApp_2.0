@@ -27,12 +27,7 @@
         flex: 1;
         padding: 1.5rem;
     }
-    .greeting-bar {
-        background-color: #e9ecef;
-        padding: 0.75rem 1.5rem;
-        font-size: 1.1rem;
-        border-bottom: 1px solid #dee2e6;
-    }
+    
     /* На мобильных меню уходит вниз */
     @media (max-width: 768px) {
         .student-wrapper {
@@ -48,13 +43,7 @@
 {% endblock %}
 
 {% block outer_content %}
-<div class="greeting-bar">
-    {% if greeting %}
-        {{ greeting }}, {{ student.first_name }} {{ student.last_name }}!
-    {% else %}
-        Добро пожаловать, {{ student.first_name }} {{ student.last_name }}!
-    {% endif %}
-</div>
+
 <div class="student-wrapper">
     <!-- Основной контент (слева) -->
     <main class="content">
