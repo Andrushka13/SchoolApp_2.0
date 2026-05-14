@@ -33,6 +33,22 @@ class ControlForm(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+class Room(models.Model):
+    """Учебная аудитория"""
+    name = models.CharField(max_length=20, unique=True, verbose_name="Номер аудитории")
+    floor = models.PositiveSmallIntegerField(verbose_name="Этаж")
+    capacity = models.PositiveSmallIntegerField(default=20, verbose_name="Вместимость")
+
+    class Meta:
+        verbose_name = "Аудитория"
+        verbose_name_plural = "Аудитории"
+        ordering = ['floor', 'name']
+
+    def __str__(self):
+        return f"Ауд. {self.name} (этаж {self.floor})"
+
 
 
 # ──────────────────────────────────────
@@ -113,9 +129,9 @@ class Group(models.Model):
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='student_profile')
-    first_name = models.CharField(max_length=50, verbose_name="Имя")
-    last_name = models.CharField(max_length=50, verbose_name="Фамилия")
-    middle_name = models.CharField(max_length=50, blank=True, verbose_name="Отчество")
+    first_name = models.CharField(max_length=150, verbose_name="Имя")
+    last_name = models.CharField(max_length=150, verbose_name="Фамилия")
+    middle_name = models.CharField(max_length=150, blank=True, verbose_name="Отчество")
     birth_date = models.DateField(verbose_name="Дата рождения")
     phone = models.CharField(max_length=20, unique=True, verbose_name="Номер телефона")
     email = models.EmailField(unique=True, verbose_name="Электронная почта")
@@ -162,9 +178,9 @@ class Student(models.Model):
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='teacher_profile')
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    middle_name = models.CharField(max_length=50, blank=True)
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True)
     birth_date = models.DateField()
     phone = models.CharField(max_length=20, unique=True)
     email = models.EmailField(unique=True)
@@ -190,9 +206,9 @@ class Teacher(models.Model):
 class Secretary(models.Model):
     """Секретарь приёмной комиссии"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='secretary_profile')
-    first_name = models.CharField(max_length=100, verbose_name="Имя")
-    last_name = models.CharField(max_length=100, verbose_name="Фамилия")
-    middle_name = models.CharField(max_length=100, verbose_name="Отчество")
+    first_name = models.CharField(max_length=150, verbose_name="Имя")
+    last_name = models.CharField(max_length=150, verbose_name="Фамилия")
+    middle_name = models.CharField(max_length=150, verbose_name="Отчество")
     phone = models.CharField(max_length=20, unique=True, verbose_name="Номер телефона")
     email = models.EmailField(unique=True, verbose_name="Email")
     photo = models.ImageField(upload_to='secretary_photos/', blank=True, null=True, verbose_name="Фотография")
@@ -248,7 +264,13 @@ class Schedule(models.Model):
     ONLINE = 'online'
     FORMAT_CHOICES = [(OFFLINE, 'Очно'), (ONLINE, 'Дистанционно')]
     format = models.CharField(max_length=10, choices=FORMAT_CHOICES, verbose_name="Формат")
-    classroom = models.CharField(max_length=20, blank=True, null=True, verbose_name="Аудитория")
+    classroom = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Аудитория"
+    )
     video_link = models.URLField(blank=True, null=True, verbose_name="Ссылка на видеоконференцию")
     is_cancelled = models.BooleanField(default=False, verbose_name="Отменено")
     change_reason = models.TextField(blank=True, verbose_name="Причина изменения")

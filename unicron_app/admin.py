@@ -40,3 +40,7 @@ class DefaultAdmin(admin.ModelAdmin):
 @admin.register(Secretary)
 class SecretaryAdmin(admin.ModelAdmin):
     list_display = ('last_name', 'first_name', 'phone', 'email')
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ('name', 'floor', 'capacity')

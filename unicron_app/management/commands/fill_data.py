@@ -1,183 +1,115 @@
 # unicron_app/management/commands/fill_data.py
-# -*- coding: utf-8 -*-
 import datetime
 import random
+from collections import defaultdict
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from unicron_app.models import (
     User, Position, ControlForm,
     Direction, Group, Student, Teacher, Subject,
-    Curriculum, Schedule, Attendance, Grade, Secretary
+    Curriculum, Schedule, Attendance, Grade, Room
 )
 
 
 class Command(BaseCommand):
-    help = 'Заполняет базу данных тестовыми данными для демонстрации работы системы'
+    help = 'Заполняет базу демонстрационными данными (300 студентов, 20 преподавателей, очные группы ≤ аудиторий)'
 
     def handle(self, *args, **options):
-        # 1. Очистка старых данных
+        # 1. Очистка
         self.stdout.write('Очистка старых данных...')
-        # Удаляем в порядке обратных зависимостей
         Grade.objects.all().delete()
         Attendance.objects.all().delete()
         Schedule.objects.all().delete()
         Curriculum.objects.all().delete()
-        User.objects.all().delete()          # каскадно удалит Student, Teacher
+        User.objects.all().delete()
         Group.objects.all().delete()
         Subject.objects.all().delete()
         Direction.objects.all().delete()
         Position.objects.all().delete()
         ControlForm.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS('Старые данные удалены.'))
+        Room.objects.all().delete()
 
-        # 2. Создание справочников
+        # 2. Справочники
         self.stdout.write('Создание справочников...')
         pos_teacher = Position.objects.create(title='преподаватель')
         pos_senior = Position.objects.create(title='старший преподаватель')
-        positions = [pos_teacher, pos_senior]
-
         cf_zachet = ControlForm.objects.create(name='зачёт')
         cf_exam = ControlForm.objects.create(name='экзамен')
-        control_forms = [cf_zachet, cf_exam]
 
-        # 3. Создание пользователей
+        # 3. Аудитории (20 шт., 2 этажа по 10)
+        self.stdout.write('Создание аудиторий...')
+        rooms = []
+        for floor in [1, 2]:
+            for num in range(1, 11):
+                name = f"{floor}{num:02d}"
+                room = Room.objects.create(name=name, floor=floor, capacity=random.randint(15, 30))
+                rooms.append(room)
+        max_offline_groups = len(rooms)  # 20
+
+        # 4. Пользователи
         self.stdout.write('Создание пользователей...')
-        default_password = 'password_1'
+        pwd = 'password_1'
 
-        # Администратор, руководитель, методист, секретарь
-        admin_user = User.objects.create_user(
-            username='admin',
-            password=default_password,
-            role='admin',
-            email='admin@unicron.ru',
-            is_staff=True,
-            is_superuser=True
-        )
-        head_user = User.objects.create_user(
-            username='head',
-            password=default_password,
-            role='head',
-            email='head@unicron.ru',
-        )
-        methodist_user = User.objects.create_user(
-            username='methodist',
-            password=default_password,
-            role='methodist',
-            email='methodist@unicron.ru',
-        )
-        secretary_user = User.objects.create_user(
-            username='secretary',
-            password=default_password,
-            role='secretary',
-            email='secretary@unicron.ru',
-        )
-        Secretary.objects.create(
-            user=secretary_user,
-            first_name='Елена',
-            last_name='Ветрова',
-            middle_name='Сергеевна',
-            phone='+79001234567',
-            email=secretary_user.email,
-        )
+        User.objects.create_user(username='admin', password=pwd, role='admin',
+                                 email='admin@unicron.ru', is_staff=True, is_superuser=True)
+        User.objects.create_user(username='head', password=pwd, role='head', email='head@unicron.ru')
+        User.objects.create_user(username='methodist', password=pwd, role='methodist', email='methodist@unicron.ru')
+        User.objects.create_user(username='secretary', password=pwd, role='secretary', email='secretary@unicron.ru')
 
-        # Преподаватели (10 человек)
+        # 20 преподавателей
         teachers = []
         specializations = [
-            'Python-разработка',
-            'Java-разработка',
-            'Веб-технологии',
-            'Базы данных',
-            'Сетевые технологии',
-            'Информационная безопасность',
-            'DevOps и Linux',
-            'Машинное обучение',
-            'Мобильная разработка (Android)',
-            'Мобильная разработка (iOS)'
+            'Python', 'Java', 'C++', 'Web-разработка', 'Базы данных',
+            'Сетевые технологии', 'Информационная безопасность', 'DevOps',
+            'Машинное обучение', 'Мобильная разработка'
         ]
-        teacher_names = [
-            ('Иван', 'Петров', 'Сергеевич'),
-            ('Пётр', 'Сидоров', 'Алексеевич'),
-            ('Анна', 'Кузнецова', 'Владимировна'),
-            ('Елена', 'Смирнова', 'Игоревна'),
-            ('Дмитрий', 'Васильев', 'Петрович'),
-            ('Ольга', 'Фёдорова', 'Николаевна'),
-            ('Сергей', 'Морозов', 'Андреевич'),
-            ('Марина', 'Волкова', 'Дмитриевна'),
-            ('Алексей', 'Лебедев', 'Михайлович'),
-            ('Татьяна', 'Соколова', 'Павловна'),
-        ]
-
-        for i, (first_name, last_name, middle_name) in enumerate(teacher_names):
-            username = f'teacher{i+1}'
-            position = pos_teacher if i < 7 else pos_senior  # первые 7 — преподаватели, остальные — старшие
-            user = User.objects.create_user(
-                username=username,
-                password=default_password,
-                role='teacher',
-                email=f'{username}@unicron.ru'
-            )
-            teacher = Teacher.objects.create(
-                user=user,
-                first_name=first_name,
-                last_name=last_name,
-                middle_name=middle_name,
-                birth_date=datetime.date(1980 + i, (i % 12) + 1, (i % 28) + 1),
-                phone=f'+790011122{i:02d}',
-                email=user.email,
-                specialization=specializations[i],
-                max_weekly_hours=40 if position == pos_senior else 36,
+        for i in range(1, 21):
+            email = f'teacher{i}@unicron.ru'
+            u = User.objects.create_user(username=f'teacher{i}', password=pwd, role='teacher', email=email)
+            pos = pos_senior if i > 15 else pos_teacher
+            spec = specializations[(i - 1) % len(specializations)]
+            t = Teacher.objects.create(
+                user=u,
+                first_name=f'Иван{i}',
+                last_name=f'Преподавателев{i}',
+                birth_date=datetime.date(1980 + (i % 20), 1, 15),
+                phone=f'+7900111220{i:02d}',
+                email=email,
+                specialization=spec,
+                max_weekly_hours=40 if pos == pos_senior else 36,
                 hire_date=datetime.date(2024, 9, 1),
-                position=position,
+                position=pos,
                 status='active'
             )
-            teachers.append(teacher)
+            teachers.append(t)
 
-        # Ученики (30 человек)
+        # 300 студентов
         students = []
-        student_first_names = [
-            'Алексей', 'Мария', 'Дмитрий', 'Анна', 'Сергей',
-            'Екатерина', 'Николай', 'Юлия', 'Андрей', 'Виктория',
-            'Павел', 'Наталья', 'Максим', 'Ирина', 'Артём',
-            'Ксения', 'Владимир', 'Дарья', 'Роман', 'Евгения',
-            'Игорь', 'Алёна', 'Станислав', 'Валерия', 'Григорий',
-            'Полина', 'Константин', 'Анастасия', 'Борис', 'Людмила'
-        ]
-        student_last_names = [
-            'Иванов', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев',
-            'Петров', 'Соколов', 'Михайлов', 'Новиков', 'Фёдоров',
-            'Морозов', 'Волков', 'Алексеев', 'Лебедев', 'Семёнов',
-            'Егоров', 'Павлов', 'Козлов', 'Степанов', 'Николаев',
-            'Орлов', 'Андреев', 'Макаров', 'Никитин', 'Захаров',
-            'Зайцев', 'Соловьёв', 'Борисов', 'Яковлев', 'Григорьев'
-        ]
-
-        for i in range(30):
-            username = f'student{i+1}'
-            first_name = student_first_names[i]
-            last_name = student_last_names[i]
-            user = User.objects.create_user(
-                username=username,
-                password=default_password,
-                role='student',
-                email=f'{username}@unicron.ru'
-            )
-            student = Student.objects.create(
-                user=user,
-                first_name=first_name,
-                last_name=last_name,
-                middle_name='',
-                birth_date=datetime.date(2000, 1, 1) + datetime.timedelta(days=i*10),
-                phone=f'+7900555123{i:02d}',
-                email=user.email,
+        first_names = ['Алексей', 'Мария', 'Дмитрий', 'Анна', 'Сергей',
+                       'Екатерина', 'Николай', 'Юлия', 'Андрей', 'Виктория',
+                       'Павел', 'Наталья', 'Максим', 'Ирина', 'Артём']
+        last_names = ['Иванов', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев',
+                      'Петров', 'Соколов', 'Михайлов', 'Новиков', 'Фёдоров',
+                      'Морозов', 'Волков', 'Алексеев', 'Лебедев', 'Семёнов']
+        for i in range(300):
+            username = f'student{i + 1}'
+            email = f'{username}@unicron.ru'
+            phone = f'+7900{1000001 + i}'
+            u = User.objects.create_user(username=username, password=pwd, role='student', email=email)
+            s = Student.objects.create(
+                user=u,
+                first_name=random.choice(first_names),
+                last_name=random.choice(last_names),
+                birth_date=datetime.date(2000, 1, 1) + datetime.timedelta(days=random.randint(1, 3650)),
+                phone=phone,
+                email=email,
                 status='studying',
                 date_enrolled=datetime.date(2025, 9, 1),
-                group=None  # назначим позже
+                group=None
             )
-            students.append(student)
+            students.append(s)
 
-        # 4. Направления обучения (5)
-        self.stdout.write('Создание направлений...')
-        directions = []
+        # 5. Направления и предметы
         dir_names = [
             'Веб-разработка на Python',
             'Мобильная разработка',
@@ -185,220 +117,224 @@ class Command(BaseCommand):
             'Кибербезопасность',
             'Системное администрирование и DevOps'
         ]
-        for name in dir_names:
-            d = Direction.objects.create(
-                title=name,
-                description=f'Направление обучения: {name}',
-                is_open=True
-            )
-            directions.append(d)
+        directions = [Direction.objects.create(title=name, is_open=True) for name in dir_names]
 
-        # 5. Предметы (10)
-        self.stdout.write('Создание предметов...')
         subjects = []
         subj_data = [
-            {'title': 'Основы Python', 'hours': 72, 'control': cf_zachet, 'desc': 'Введение в программирование на Python'},
-            {'title': 'Веб-фреймворк Django', 'hours': 90, 'control': cf_exam, 'desc': 'Разработка веб-приложений на Django'},
-            {'title': 'Базы данных PostgreSQL', 'hours': 80, 'control': cf_exam, 'desc': 'Реляционные базы данных и SQL'},
-            {'title': 'Java для Android', 'hours': 85, 'control': cf_exam, 'desc': 'Разработка мобильных приложений под Android'},
-            {'title': 'Swift и iOS', 'hours': 70, 'control': cf_zachet, 'desc': 'Разработка приложений под iOS'},
-            {'title': 'Машинное обучение', 'hours': 100, 'control': cf_exam, 'desc': 'Основы ML, нейросети и анализ данных'},
-            {'title': 'Сетевые технологии', 'hours': 60, 'control': cf_zachet, 'desc': 'Основы компьютерных сетей'},
-            {'title': 'Информационная безопасность', 'hours': 75, 'control': cf_exam, 'desc': 'Защита информации и кибербезопасность'},
-            {'title': 'Linux и DevOps', 'hours': 90, 'control': cf_zachet, 'desc': 'Администрирование Linux и CI/CD'},
-            {'title': 'Проектирование ПО', 'hours': 65, 'control': cf_zachet, 'desc': 'UML, паттерны проектирования, архитектура ПО'},
+            ('Основы Python', 72, cf_zachet),
+            ('Веб-фреймворк Django', 90, cf_exam),
+            ('Базы данных PostgreSQL', 80, cf_exam),
+            ('Java для Android', 85, cf_exam),
+            ('Swift и iOS', 70, cf_zachet),
+            ('Машинное обучение', 100, cf_exam),
+            ('Сетевые технологии', 60, cf_zachet),
+            ('Информационная безопасность', 75, cf_exam),
+            ('Linux и DevOps', 90, cf_zachet),
+            ('Проектирование ПО', 65, cf_zachet),
         ]
-        for sd in subj_data:
-            s = Subject.objects.create(
-                title=sd['title'],
-                hours=sd['hours'],
-                description=sd['desc'],
-                control_form=sd['control']
-            )
+        for title, hours, control in subj_data:
+            s = Subject.objects.create(title=title, hours=hours, control_form=control)
             subjects.append(s)
 
-        # Связываем предметы с направлениями
-        self.stdout.write('Привязка предметов к направлениям...')
         mapping = {
-            directions[0]: [subjects[0], subjects[1], subjects[2], subjects[9]],      # Веб
-            directions[1]: [subjects[3], subjects[4], subjects[2], subjects[9]],      # Мобильная
-            directions[2]: [subjects[5], subjects[0], subjects[2], subjects[7]],      # Data Science
-            directions[3]: [subjects[7], subjects[6], subjects[2], subjects[5]],      # Кибербезопасность
-            directions[4]: [subjects[8], subjects[6], subjects[2], subjects[9]],      # DevOps
+            directions[0]: [0, 1, 2, 9],
+            directions[1]: [3, 4, 2, 9],
+            directions[2]: [5, 0, 2, 7],
+            directions[3]: [7, 6, 2, 5],
+            directions[4]: [8, 6, 2, 9],
         }
-        for direction, subj_list in mapping.items():
-            direction.subjects.add(*subj_list)
+        for d, indexes in mapping.items():
+            d.subjects.add(*[subjects[i] for i in indexes])
 
-        # 6. Группы (3)
-        self.stdout.write('Создание групп...')
+        # 6. Группы и распределение студентов с учётом аудиторного фонда
+        self.stdout.write('Создание групп и распределение студентов...')
         groups = []
-        # Группа 1: Очная
-        g1 = Group.objects.create(
-            title='Веб-2025/1',
-            direction=directions[0],
-            form='full_time',
-            date_start=datetime.date(2025, 9, 1),
-            date_end=datetime.date(2026, 6, 30),
-            status='studying'
-        )
-        # Группа 2: Дистанционная
-        g2 = Group.objects.create(
-            title='Data-2025/Д',
-            direction=directions[2],
-            form='distance',
-            date_start=datetime.date(2025, 9, 1),
-            date_end=datetime.date(2026, 6, 30),
-            status='studying'
-        )
-        # Группа 3: Очная
-        g3 = Group.objects.create(
-            title='Безопасность-2025/1',
-            direction=directions[3],
-            form='full_time',
-            date_start=datetime.date(2025, 9, 1),
-            date_end=datetime.date(2026, 6, 30),
-            status='studying'
-        )
-        groups = [g1, g2, g3]
+        random.shuffle(students)
 
-        # Распределение студентов по группам (по 10 в каждую)
-        self.stdout.write('Распределение студентов по группам...')
-        for i, student in enumerate(students):
-            if i < 10:
-                student.group = g1
-            elif i < 20:
-                student.group = g2
+        # Счётчики очных групп
+        offline_group_counter = 0
+        # Словарь для хранения последней группы: direction_id -> {'full_time': Group, 'distance': Group}
+        last_group = defaultdict(lambda: {'full_time': None, 'distance': None})
+
+        for student in students:
+            direction = random.choice(directions)
+            # Определяем форму: очная, только если есть ещё квоты на группы
+            if offline_group_counter < max_offline_groups:
+                form = random.choice(['full_time', 'distance'])
             else:
-                student.group = g3
+                form = 'distance'
+
+            limit = 12 if form == 'full_time' else 15
+            # Получаем последнюю группу для данного направления и формы
+            last = last_group[direction.id][form]
+            if last and last.students.count() < limit:
+                candidate = last
+            else:
+                # Создаём новую группу
+                if form == 'full_time':
+                    offline_group_counter += 1
+                idx = len([g for g in groups if g.form == form and g.direction_id == direction.id]) + 1
+                candidate = Group.objects.create(
+                    title=f'{direction.title[:20]}-{form[:4]}-{idx}',
+                    direction=direction,
+                    form=form,
+                    date_start=datetime.date(2025, 9, 1),
+                    date_end=datetime.date(2026, 6, 30),
+                    status='studying'
+                )
+                groups.append(candidate)
+                last_group[direction.id][form] = candidate
+            student.group = candidate
             student.save()
 
-        # 7. Учебный план (Curriculum)
-        self.stdout.write('Формирование учебного плана...')
-        # Назначаем преподавателей на предметы в группах
-        teacher_cycle = teachers * 2  # чтобы хватило
-        for group in groups:
-            dir_subjects = list(group.direction.subjects.all())
-            # Берём до 6 предметов
-            for idx, subj in enumerate(dir_subjects[:6]):
-                teacher = teacher_cycle[idx % len(teachers)]
-                Curriculum.objects.create(
-                    group=group,
-                    subject=subj,
-                    teacher=teacher
-                )
+        # Активируем статус всем группам
+        for g in groups:
+            g.status = 'studying'
+            g.save()
 
-        # 8. Расписание занятий на ближайшую неделю
+        self.stdout.write(f'  Создано {len(groups)} групп (очных: {offline_group_counter})')
+
+        # 7. Учебные планы
+        self.stdout.write('Создание учебных планов...')
+        teacher_cycle = teachers * 3
+        for idx, group in enumerate(groups):
+            dir_subjects = list(group.direction.subjects.all())
+            for i, subj in enumerate(dir_subjects):
+                teacher = teacher_cycle[(idx * len(dir_subjects) + i) % len(teacher_cycle)]
+                Curriculum.objects.create(group=group, subject=subj, teacher=teacher)
+
+        # 8. Расписание (синхронизация очных и дистанционных групп)
         self.stdout.write('Создание расписания...')
         today = timezone.now().date()
-        weekday = today.weekday()  # 0-пн, 6-вс
-        monday = today - datetime.timedelta(days=weekday)
-
-        # Каждой группе — свой временной слот
-        times = [
-            ('09:00', '10:30'),
-            ('10:45', '12:15'),
-            ('13:00', '14:30'),
+        monday = today - datetime.timedelta(days=today.weekday())
+        time_slots = [
+            (datetime.time(9, 0), datetime.time(10, 30)),
+            (datetime.time(10, 45), datetime.time(12, 15)),
+            (datetime.time(13, 0), datetime.time(14, 30)),
         ]
-        group_times = {
-            g1: times[0],  # 9:00-10:30
-            g2: times[1],  # 10:45-12:15
-            g3: times[2],  # 13:00-14:30
-        }
 
-        for group in groups:
-            curriculums = Curriculum.objects.filter(group=group)
-            if not curriculums.exists():
+        # Группируем группы по направлениям
+        dir_groups = defaultdict(list)
+        for g in groups:
+            dir_groups[g.direction_id].append(g)
+
+        schedule_objects = []
+
+        for direction_id, group_list in dir_groups.items():
+            offline_groups = [g for g in group_list if g.form == 'full_time']
+            online_groups = [g for g in group_list if g.form == 'distance']
+            # Учебный план берём из первой группы направления (считаем, что одинаковый)
+            sample_curriculums = list(Curriculum.objects.filter(group=group_list[0]))
+            if not sample_curriculums:
                 continue
-            time_start_str, time_end_str = group_times[group]
-            time_start = datetime.datetime.strptime(time_start_str, '%H:%M').time()
-            time_end = datetime.datetime.strptime(time_end_str, '%H:%M').time()
+            subjects_cycle = [c.subject for c in sample_curriculums]
+            teachers_cycle = [c.teacher for c in sample_curriculums]
 
-            # Расписание на 5 дней (Пн-Пт), 2 недели вперёд для разнообразия
-            for week_offset in range(2):
+            # Цикл по дням и слотам
+            for week in range(2):
                 for day_offset in range(5):
-                    date = monday + datetime.timedelta(days=day_offset + week_offset * 7)
+                    date = monday + datetime.timedelta(days=day_offset + week * 7)
                     if date < today:
-                        continue  # пропускаем прошедшие дни
-                    # Выбираем предмет по циклу
-                    curric_idx = (day_offset + week_offset * 5) % len(curriculums)
-                    curriculum = curriculums[curric_idx]
-                    Schedule.objects.create(
-                        group=group,
-                        subject=curriculum.subject,
-                        teacher=curriculum.teacher,
-                        date=date,
-                        time_start=time_start,
-                        time_end=time_end,
-                        format='offline' if group.form == 'full_time' else 'online',
-                        classroom='Ауд. 101' if group.form == 'full_time' else '',
-                        video_link='https://meet.unicron.ru/abc123' if group.form == 'distance' else '',
-                        is_cancelled=False
-                    )
+                        continue
+                    for slot_idx, (time_start, time_end) in enumerate(time_slots):
+                        # Выбираем предмет и преподавателя
+                        item_idx = (day_offset + week * 5 + slot_idx) % len(subjects_cycle)
+                        subject = subjects_cycle[item_idx]
+                        teacher = teachers_cycle[item_idx] if item_idx < len(teachers_cycle) else random.choice(teachers)
+
+                        # Ищем свободную аудиторию для очных групп
+                        classroom = None
+                        if offline_groups:
+                            occupied_rooms = Schedule.objects.filter(
+                                date=date,
+                                time_start__lt=time_end,
+                                time_end__gt=time_start,
+                                classroom__isnull=False
+                            ).values_list('classroom_id', flat=True)
+                            free_room = Room.objects.exclude(id__in=occupied_rooms).first()
+                            if free_room:
+                                classroom = free_room
+
+                        # Выбираем одну очную группу для этого занятия (по кругу)
+                        offline_group = None
+                        if classroom and offline_groups:
+                            # Простейший циклический выбор
+                            idx = (week * 5 + day_offset + slot_idx) % len(offline_groups)
+                            offline_group = offline_groups[idx]
+
+                        # Создаём запись для очной группы (если есть аудитория и группа)
+                        if offline_group:
+                            schedule_objects.append(Schedule(
+                                group=offline_group,
+                                subject=subject,
+                                teacher=teacher,
+                                date=date,
+                                time_start=time_start,
+                                time_end=time_end,
+                                format='offline',
+                                classroom=classroom,
+                                video_link='',
+                                is_cancelled=False
+                            ))
+                        # Для всех дистанционных групп – онлайн
+                        video_link = f'https://meet.unicron.ru/{direction_id}_{date}_{time_start}'
+                        for og in online_groups:
+                            schedule_objects.append(Schedule(
+                                group=og,
+                                subject=subject,
+                                teacher=teacher,
+                                date=date,
+                                time_start=time_start,
+                                time_end=time_end,
+                                format='online',
+                                classroom=None,
+                                video_link=video_link,
+                                is_cancelled=False
+                            ))
+
+        # Пакетная вставка всех записей расписания
+        Schedule.objects.bulk_create(schedule_objects)
+        self.stdout.write(f'  Создано {len(schedule_objects)} записей расписания.')
 
         # 9. Оценки и посещаемость
         self.stdout.write('Создание оценок и посещаемости...')
-        for student in students:
-            group = student.group
-            if not group:
-                continue
-            # Берём предметы из учебного плана группы
-            curriculums = Curriculum.objects.filter(group=group)[:3]
-            for curriculum in curriculums:
-                subject = curriculum.subject
-                # Текущая оценка
-                Grade.objects.create(
-                    student=student,
-                    subject=subject,
-                    group=group,
-                    control_type='current',
-                    date=today - datetime.timedelta(days=random.randint(1, 30)),
-                    score=random.randint(3, 5)
-                )
-                # Итоговая оценка (не у всех)
-                if student.pk % 3 == 0:
+        for group in groups:
+            curriculums = Curriculum.objects.filter(group=group)
+            subjects_of_group = [c.subject for c in curriculums]
+            for student in group.students.all():
+                for subject in subjects_of_group:
+                    if random.random() < 0.8:
+                        Grade.objects.create(
+                            student=student, subject=subject, group=group,
+                            control_type='current',
+                            date=today - datetime.timedelta(days=random.randint(1, 30)),
+                            score=random.randint(2, 5)
+                        )
                     if subject.control_form and subject.control_form.name == 'экзамен':
                         Grade.objects.create(
-                            student=student,
-                            subject=subject,
-                            group=group,
+                            student=student, subject=subject, group=group,
                             control_type='final',
                             date=today - datetime.timedelta(days=random.randint(1, 10)),
-                            score=random.randint(3, 5)
+                            score=random.randint(2, 5)
                         )
                     else:
                         Grade.objects.create(
-                            student=student,
-                            subject=subject,
-                            group=group,
+                            student=student, subject=subject, group=group,
                             control_type='final',
                             date=today - datetime.timedelta(days=random.randint(1, 10)),
                             is_passed=random.choice([True, True, False])
                         )
+                sample_schedule = Schedule.objects.filter(group=group).order_by('?').first()
+                if sample_schedule:
+                    Attendance.objects.create(
+                        schedule=sample_schedule, student=student, group=group,
+                        subject=sample_schedule.subject, date=sample_schedule.date,
+                        is_present=random.choice([True, True, False])
+                    )
 
-            # Посещаемость: отметим последнее занятие в расписании группы
-            last_schedule = Schedule.objects.filter(group=group).order_by('-date', '-time_start').first()
-            if last_schedule:
-                Attendance.objects.create(
-                    schedule=last_schedule,
-                    student=student,
-                    group=group,
-                    subject=last_schedule.subject,
-                    date=last_schedule.date,
-                    is_present=random.choice([True, True, True, False])  # 75% вероятность присутствия
-                )
-
-        # 10. Финальный вывод
-        self.stdout.write(self.style.SUCCESS('База данных успешно заполнена!'))
-        self.stdout.write(f'Всего создано:')
-        self.stdout.write(f'  Пользователей: {User.objects.count()}')
-        self.stdout.write(f'  Направлений: {Direction.objects.count()}')
-        self.stdout.write(f'  Предметов: {Subject.objects.count()}')
-        self.stdout.write(f'  Групп: {Group.objects.count()}')
-        self.stdout.write(f'  Студентов: {Student.objects.count()}')
-        self.stdout.write(f'  Преподавателей: {Teacher.objects.count()}')
-        self.stdout.write(f'  Записей расписания: {Schedule.objects.count()}')
-        self.stdout.write(f'  Оценок: {Grade.objects.count()}')
-        self.stdout.write(f'  Записей посещаемости: {Attendance.objects.count()}')
-        self.stdout.write(f'')
-        self.stdout.write(f'  Пароль для всех пользователей: {default_password}')
-        self.stdout.write(f'  Логины: admin, head, methodist, teacher1..teacher10, student1..student30')
+        # 10. Итоговая статистика
+        self.stdout.write(self.style.SUCCESS(
+            f'Готово! Создано: групп {Group.objects.count()}, '
+            f'студентов {Student.objects.count()}, преподавателей {Teacher.objects.count()}, '
+            f'оценок {Grade.objects.count()}, записей расписания {Schedule.objects.count()}'
+        ))
