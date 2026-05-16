@@ -1,5 +1,6 @@
 from django import forms
-from .models import Student, Teacher, Schedule, Grade, Group, Subject, Attendance
+from django.contrib.auth.forms import AuthenticationForm
+from .models import Student, Teacher, Schedule, Grade, Group, Subject, Attendance, User
 
 class StudentApplicationForm(forms.ModelForm):
     """Форма заявки на поступление (регистрирует и студента, и пользователя)"""
@@ -48,3 +49,10 @@ class GradeForm(forms.ModelForm):
         if cleaned.get('score') and cleaned.get('is_passed'):
             raise forms.ValidationError('Выберите что-то одно: балл или зачёт/незачёт.')
         return cleaned
+
+
+class CustomAuthForm(AuthenticationForm):
+    error_messages = {
+        'invalid_login': "Неверный логин или пароль",
+        'inactive': "Эта запись не активна",
+    }

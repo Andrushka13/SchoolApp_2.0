@@ -37,13 +37,20 @@
                                class="form-control {% if form.password.errors %}is-invalid{% endif %}"
                                style="width: 300px; height: 50px; box-sizing: border-box;"
                                required>
-                        {% if form.password.errors %}
+                        {% comment %} {% if form.password.errors %}
                             <div class="invalid-feedback">
                                 {{ form.password.errors }}
                             </div>
+                        {% endif %} {% endcomment %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger mt-2">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </div>
-
+                    
                     <button type="submit" class="btn btn-primary w-100">Войти</button>
                 </form>
             </div>
